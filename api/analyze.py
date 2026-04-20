@@ -142,17 +142,16 @@ def analyze():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured on server"}), 500
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=110.0)
 
     try:
-        with client.messages.stream(
+        response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=16000,
+            max_tokens=8000,
             system=SYSTEM_PROMPT,
-            tools=[{"type": "web_search_20260209", "name": "web_search"}],
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
             messages=[{"role": "user", "content": build_prompt(ticker)}],
-        ) as stream:
-            response = stream.get_final_message()
+        )
 
         text_parts = [block.text for block in response.content if block.type == "text"]
         full_text = " ".join(text_parts).strip()
