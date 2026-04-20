@@ -26,7 +26,7 @@ STEP 1: Search for {ticker.upper()} current fundamental data. Look for:
 - Cash flow: FCF yield, dividend yield
 - Market cap (in billions USD)
 
-STEP 2: Identify 4-5 key publicly traded competitors in the same sector/industry.
+STEP 2: Identify 3 key publicly traded competitors in the same sector/industry.
 
 STEP 3: Search for each competitor's fundamental data (same metrics where available).
 
@@ -147,7 +147,7 @@ def analyze():
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=8000,
+            max_tokens=4000,
             system=SYSTEM_PROMPT,
             tools=[{"type": "web_search_20250305", "name": "web_search"}],
             messages=[{"role": "user", "content": build_prompt(ticker)}],
