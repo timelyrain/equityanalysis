@@ -128,13 +128,14 @@ def analyze():
     client = anthropic.Anthropic(api_key=api_key)
 
     try:
-        response = client.messages.create(
+        with client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
+            max_tokens=16000,
             system=SYSTEM_PROMPT,
-            tools=[{"type": "web_search_20250305", "name": "web_search"}],
+            tools=[{"type": "web_search_20260209", "name": "web_search"}],
             messages=[{"role": "user", "content": build_prompt(ticker)}],
-        )
+        ) as stream:
+            response = stream.get_final_message()
 
         text_parts = [block.text for block in response.content if block.type == "text"]
         full_text = " ".join(text_parts).strip()
