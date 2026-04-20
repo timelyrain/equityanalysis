@@ -111,6 +111,23 @@ Return ONLY this JSON (use null for unavailable data, all percentages as floats 
 }}"""
 
 
+@app.route("/api/test-key", methods=["GET"])
+def test_key():
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 500
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+        return jsonify({"status": "ok", "model": response.model})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
     data = request.get_json(silent=True) or {}
