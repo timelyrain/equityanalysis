@@ -230,6 +230,7 @@ def analyze():
         response = client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=4000,
+            temperature=0,
             messages=[{
                 "role": "user",
                 "content": ANALYSIS_PROMPT.format(
