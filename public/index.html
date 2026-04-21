@@ -440,8 +440,10 @@
       color: var(--text-3);
     }
     .score-rank {
-      font-size: 0.68rem;
-      color: var(--text-2);
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-1);
     }
 
     /* ─── SECTION TITLE ───────────────────────────────── */
@@ -874,37 +876,12 @@ function renderDashboard(d) {
     <!-- RANKING BANNER -->
     <div class="ranking-banner">
       <div class="rank-item">
-        <div class="rank-val">${toTier(r.overall_rank)}</div>
-        <div class="rank-lbl">Overall Tier</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">${toTier(r.valuation_rank)}</div>
-        <div class="rank-lbl">Valuation</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">${toTier(r.profitability_rank)}</div>
-        <div class="rank-lbl">Profitability</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">${toTier(r.growth_rank)}</div>
-        <div class="rank-lbl">Growth</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">${toTier(r.health_rank)}</div>
-        <div class="rank-lbl">Health</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
         <div class="rank-val">${r.sector_percentile ?? "—"}<span style="font-size:0.85rem;color:var(--text-2)">th</span></div>
         <div class="rank-lbl">Sector Percentile</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-2);font-size:1.1rem">
+        <div class="rank-val" style="font-size:1.1rem">
           ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
         </div>
         <div class="rank-lbl">12M Return</div>
