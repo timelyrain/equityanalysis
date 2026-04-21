@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 
 import anthropic
 from finvizfinance.quote import finvizfinance as fvf
@@ -9,6 +10,21 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
+
+_spy_cache = {"perf_year": None, "ts": 0}
+_SPY_TTL = 86400  # 24 hours
+
+def get_spy_perf():
+    if time.time() - _spy_cache["ts"] < _SPY_TTL and _spy_cache["perf_year"] is not None:
+        return _spy_cache["perf_year"]
+    try:
+        f = fvf("SPY").ticker_fundament()
+        val = parse_num(f.get("Perf Year"))
+        _spy_cache["perf_year"] = val
+        _spy_cache["ts"] = time.time()
+        return val
+    except Exception:
+        return _spy_cache["perf_year"]
 
 
 def parse_num(val):
@@ -79,6 +95,7 @@ def fetch_fundamentals(ticker):
         "analyst_recom": f.get("Recom"),
         "current_price": parse_num(f.get("Price")),
         "target_price": parse_num(f.get("Target Price")),
+        "perf_year": parse_num(f.get("Perf Year")),
     }
 
 
@@ -258,6 +275,10 @@ def analyze():
         result = json.loads(full_text)
         result["current_price"] = target.get("current_price")
         result["target_price"] = target.get("target_price")
+        result["perf_year"] = target.get("perf_year")
+        spy = get_spy_perf()
+        result["spy_perf_year"] = spy
+        result["vs_sp500"] = round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None
         return jsonify(result)
 
     except json.JSONDecodeError as e:
