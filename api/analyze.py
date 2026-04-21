@@ -362,6 +362,7 @@ def analyze():
     scoring      = compute_scores(target, competitors)
     scores       = scoring["scores"]
     rankings     = scoring["rankings"]
+    peer_scores  = scoring["peer_scores"]
     verdict      = score_to_verdict(scores["overall"])
     sf           = target.get("short_float")
     sr           = target.get("short_ratio")
@@ -445,6 +446,7 @@ def analyze():
                     "ticker":             c.get("ticker"),
                     "company_name":       c.get("company_name"),
                     "market_cap_b":       c.get("market_cap_b"),
+                    "perf_year":          c.get("perf_year"),
                     "pe_ratio":           c.get("pe_ratio"),
                     "ev_ebitda":          c.get("ev_ebitda"),
                     "ps_ratio":           c.get("ps_ratio"),
@@ -459,7 +461,8 @@ def analyze():
                 }
                 for c in competitors
             ],
-            "scores":   scores,
+            "scores":      scores,
+            "peer_scores": peer_scores,
             "rankings": {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)},
             "analyst_verdict":  verdict,
             "strengths":        narrative.get("strengths", []),

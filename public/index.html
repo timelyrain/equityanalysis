@@ -915,10 +915,21 @@ function renderDashboard(d) {
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item" style="flex:1">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${(d.competitors || []).map(c => `<span style="font-family:var(--mono);font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--text-2);letter-spacing:0.05em">${esc(c.ticker)}</span>`).join("")}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+          ${(d.competitors || []).map(c => {
+            const ps = (d.peer_scores || {})[c.ticker];
+            const score = ps ? Math.round(ps.overall) : null;
+            const ret = c.perf_year != null ? c.perf_year : null;
+            const retColor = ret == null ? "var(--text-3)" : ret >= 0 ? "var(--green)" : "var(--red)";
+            const retStr = ret != null ? `${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%` : "—";
+            const scoreStr = score != null ? `${score}` : "—";
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--text-1);letter-spacing:0.05em">${esc(c.ticker)}</span>
+              <span style="font-size:0.6rem;color:var(--text-3);font-family:var(--mono)"><span style="color:var(--text-2)">${scoreStr}</span> · <span style="color:${retColor}">${retStr}</span></span>
+            </div>`;
+          }).join("")}
         </div>
-        <div class="rank-lbl">vs. Peers</div>
+        <div class="rank-lbl" style="margin-top:4px">vs. Peers</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
