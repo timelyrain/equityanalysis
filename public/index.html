@@ -926,11 +926,10 @@ function renderDashboard(d) {
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px">
               <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;color:var(--text-1);letter-spacing:0.05em">${esc(c.ticker)}</span>
               <span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
-              <span style="font-size:0.58rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M Ret</span>
+              <span style="font-size:0.58rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M</span>
             </div>`;
           }).join("")}
         </div>
-        <div class="rank-lbl" style="margin-top:4px">vs. Peers</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
