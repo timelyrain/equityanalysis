@@ -168,9 +168,9 @@ Return ONLY this JSON (null for missing data, percentages as floats e.g. 44.5):
   }},
   "strengths": ["string", "string", "string"],
   "weaknesses": ["string", "string", "string"],
-  "key_risks": ["string", "string"],
-  "bull_case": "string",
-  "bear_case": "string",
+  "key_risks": ["string", "string", "string"],
+  "bull_case": ["string", "string", "string"],
+  "bear_case": ["string", "string", "string"],
   "analyst_verdict": "STRONG BUY | BUY | HOLD | UNDERPERFORM | AVOID",
   "verdict_rationale": "string"
 }}"""

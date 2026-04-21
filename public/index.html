@@ -455,6 +455,8 @@
     .case-tag.bear { color: var(--red); }
     .case-tag.risk { color: var(--amber); }
     .case-text { font-size: 0.72rem; color: var(--text-2); line-height: 1.7; }
+    .case-point { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .case-point:last-child { border-bottom: none; }
 
     /* ─── STRENGTHS / WEAKNESSES ──────────────────────── */
     .sw-grid {
@@ -784,16 +786,20 @@ function renderDashboard(d) {
     <div class="bottom-grid">
       <div class="case-card bull">
         <div class="case-tag bull">▲ Bull Case</div>
-        <div class="case-text">${esc(d.bull_case) || "—"}</div>
+        <div class="case-text">
+          ${(Array.isArray(d.bull_case) ? d.bull_case : [d.bull_case]).filter(Boolean).map(p => `<div class="case-point">· ${esc(p)}</div>`).join("")}
+        </div>
       </div>
       <div class="case-card bear">
         <div class="case-tag bear">▼ Bear Case</div>
-        <div class="case-text">${esc(d.bear_case) || "—"}</div>
+        <div class="case-text">
+          ${(Array.isArray(d.bear_case) ? d.bear_case : [d.bear_case]).filter(Boolean).map(p => `<div class="case-point">· ${esc(p)}</div>`).join("")}
+        </div>
       </div>
       <div class="case-card risk">
         <div class="case-tag risk">⚠ Key Risks</div>
         <div class="case-text">
-          ${(d.key_risks || []).map(r => `<div style="margin-bottom:8px">· ${esc(r)}</div>`).join("")}
+          ${(d.key_risks || []).map(r => `<div class="case-point">· ${esc(r)}</div>`).join("")}
         </div>
       </div>
     </div>
