@@ -625,8 +625,7 @@ document.getElementById("tickerInput").addEventListener("keydown", e => {
 // ── Render helpers ─────────────────────────────────────────
 
 function toTier(rank) {
-  const tiers = ["A", "B", "C", "D", "F"];
-  return tiers[Math.min((rank ?? 5) - 1, tiers.length - 1)] ?? "—";
+  return ["A", "B", "C", "D"][rank - 1] ?? "—";
 }
 
 function fmtNum(v, dec=1, suffix="") {
