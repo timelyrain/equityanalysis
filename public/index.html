@@ -924,6 +924,13 @@ function renderDashboard(d) {
         </span>
       </div>
       <div class="rank-divider"></div>
+      <div class="rank-item">
+        <div class="rank-val" style="font-size:1.1rem">
+          ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
+        </div>
+        <div class="rank-lbl">12M Return</div>
+      </div>
+      <div class="rank-divider"></div>
       <div class="rank-item" style="flex:1">
         <div style="display:flex;gap:0;flex-wrap:wrap;align-items:flex-start">
           ${(d.competitors || []).map((c, i, arr) => {
@@ -941,13 +948,6 @@ function renderDashboard(d) {
             </div>${divider}`;
           }).join("")}
         </div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="font-size:1.1rem">
-          ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
-        </div>
-        <div class="rank-lbl">12M Return</div>
       </div>
     </div>
 
