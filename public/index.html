@@ -914,6 +914,13 @@ function renderDashboard(d) {
         <div class="rank-lbl">Sector Percentile</div>
       </div>
       <div class="rank-divider"></div>
+      <div class="rank-item" style="flex:1">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${(d.competitors || []).map(c => `<span style="font-family:var(--mono);font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--text-2);letter-spacing:0.05em">${esc(c.ticker)}</span>`).join("")}
+        </div>
+        <div class="rank-lbl">vs. Peers</div>
+      </div>
+      <div class="rank-divider"></div>
       <div class="rank-item">
         <div class="rank-val" style="font-size:1.1rem">
           ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
