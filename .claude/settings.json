@@ -10,7 +10,8 @@
       "Bash(curl -s -X POST http://localhost:5001/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')",
       "Bash(python3 -m json.tool)",
       "Bash(vercel --prod)",
-      "Bash(curl -s -X POST https://equityanalysis.vercel.app/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')"
+      "Bash(curl -s -X POST https://equityanalysis.vercel.app/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')",
+      "Bash(curl -s https://equityanalysis.vercel.app)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
