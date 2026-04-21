@@ -533,11 +533,19 @@
 </div>
 
 <div class="footer">
-  Data sourced via live web search · For research purposes only · Not financial advice
+  Data sourced via Finviz · For research purposes only · Not financial advice
 </div>
 
 <script>
 const API_URL = "/api/analyze";
+
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 async function runAnalysis() {
   const ticker = document.getElementById("tickerInput").value.trim().toUpperCase();
@@ -555,7 +563,7 @@ async function runAnalysis() {
   statusBar.classList.add("visible");
   statusMsg.className = "status-msg";
   spinner.style.display = "block";
-  statusText.textContent = `Searching live fundamentals for ${ticker} and sector peers…`;
+  statusText.textContent = `Fetching Finviz fundamentals for ${ticker} and sector peers…`;
 
   try {
     const res = await fetch(API_URL, {
@@ -645,20 +653,20 @@ function renderDashboard(d) {
     <!-- COMPANY HEADER -->
     <div class="company-header">
       <div class="company-left">
-        <div class="company-ticker">${d.ticker}</div>
-        <div class="company-name">${d.company_name || ""}</div>
+        <div class="company-ticker">${esc(d.ticker)}</div>
+        <div class="company-name">${esc(d.company_name)}</div>
         <div class="company-meta">
-          <span class="meta-pill">${d.sector || ""}</span>
-          <span class="meta-pill">${d.industry || ""}</span>
+          <span class="meta-pill">${esc(d.sector)}</span>
+          <span class="meta-pill">${esc(d.industry)}</span>
           ${f.market_cap_b ? `<span class="meta-pill">Mkt Cap $${(+f.market_cap_b).toFixed(1)}B</span>` : ""}
-          <span class="meta-pill">Data: ${d.data_as_of || "Latest"}</span>
+          <span class="meta-pill">Data: ${esc(d.data_as_of) || "Latest"}</span>
         </div>
       </div>
       <div>
-        <div class="verdict-badge verdict-${verdictKey}">
-          <span>${d.analyst_verdict || "HOLD"}</span>
+        <div class="verdict-badge verdict-${esc(verdictKey)}">
+          <span>${esc(d.analyst_verdict) || "HOLD"}</span>
         </div>
-        <p class="verdict-rationale">${d.verdict_rationale || ""}</p>
+        <p class="verdict-rationale">${esc(d.verdict_rationale)}</p>
       </div>
     </div>
 
@@ -775,16 +783,16 @@ function renderDashboard(d) {
     <div class="bottom-grid">
       <div class="case-card bull">
         <div class="case-tag bull">▲ Bull Case</div>
-        <div class="case-text">${d.bull_case || "—"}</div>
+        <div class="case-text">${esc(d.bull_case) || "—"}</div>
       </div>
       <div class="case-card bear">
         <div class="case-tag bear">▼ Bear Case</div>
-        <div class="case-text">${d.bear_case || "—"}</div>
+        <div class="case-text">${esc(d.bear_case) || "—"}</div>
       </div>
       <div class="case-card risk">
         <div class="case-tag risk">⚠ Key Risks</div>
         <div class="case-text">
-          ${(d.key_risks || []).map(r => `<div style="margin-bottom:8px">· ${r}</div>`).join("")}
+          ${(d.key_risks || []).map(r => `<div style="margin-bottom:8px">· ${esc(r)}</div>`).join("")}
         </div>
       </div>
     </div>
@@ -796,7 +804,7 @@ function renderDashboard(d) {
         ${(d.strengths || []).map(s => `
           <div class="sw-item">
             <div class="sw-dot str"></div>
-            <span>${s}</span>
+            <span>${esc(s)}</span>
           </div>`).join("")}
       </div>
       <div class="sw-card">
@@ -804,7 +812,7 @@ function renderDashboard(d) {
         ${(d.weaknesses || []).map(w => `
           <div class="sw-item">
             <div class="sw-dot wk"></div>
-            <span>${w}</span>
+            <span>${esc(w)}</span>
           </div>`).join("")}
       </div>
     </div>
@@ -837,8 +845,8 @@ function renderTargetRow(d, overall) {
   const f = d.fundamentals || {};
   return `
     <tr class="target-row">
-      <td class="ticker-cell">${d.ticker}<span class="star">★</span></td>
-      <td class="name-cell">${d.company_name || ""}</td>
+      <td class="ticker-cell">${esc(d.ticker)}<span class="star">★</span></td>
+      <td class="name-cell">${esc(d.company_name)}</td>
       <td>${f.market_cap_b ? "$" + (+f.market_cap_b).toFixed(0) + "B" : "—"}</td>
       <td>${f.pe_ratio != null ? (+f.pe_ratio).toFixed(1) : "—"}</td>
       <td>${f.ev_ebitda != null ? (+f.ev_ebitda).toFixed(1) : "—"}</td>
@@ -875,8 +883,8 @@ function renderPeerRow(p, tf) {
 
   return `
     <tr>
-      <td class="ticker-cell">${p.ticker || "—"}</td>
-      <td class="name-cell">${p.company_name || ""}</td>
+      <td class="ticker-cell">${esc(p.ticker) || "—"}</td>
+      <td class="name-cell">${esc(p.company_name)}</td>
       <td>${p.market_cap_b ? "$" + (+p.market_cap_b).toFixed(0) + "B" : "—"}</td>
       ${cell(p.pe_ratio,          tf.pe_ratio,          1, "", true)}
       ${cell(p.ev_ebitda,         tf.ev_ebitda,         1, "", true)}
