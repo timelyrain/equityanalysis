@@ -683,7 +683,10 @@ function renderDashboard(d) {
     <!-- COMPANY HEADER -->
     <div class="company-header">
       <div class="company-left">
-        <div class="company-ticker">${esc(d.ticker)}</div>
+        <div style="display:flex;align-items:baseline;gap:14px;">
+          <div class="company-ticker">${esc(d.ticker)}</div>
+          ${d.current_price ? `<div style="font-family:var(--mono);font-size:1.2rem;font-weight:500;color:var(--text-2);">$${(+d.current_price).toFixed(2)}</div>` : ""}
+        </div>
         <div class="company-name">${esc(d.company_name)}</div>
         <div class="company-meta">
           <span class="meta-pill">${esc(d.sector)}</span>
