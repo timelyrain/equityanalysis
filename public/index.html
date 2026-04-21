@@ -714,6 +714,9 @@ function renderDashboard(d) {
             const upsideHtml = upside !== null
               ? `<span class="upside-tag ${upside >= 0 ? "up" : "down"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</span>`
               : "";
+            const spyHtml = d.vs_sp500 != null
+              ? `<span class="upside-tag ${d.vs_sp500 >= 0 ? "up" : "down"}">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}% vs SPY</span>`
+              : "";
             return `<div>
               <div class="target-price-block">
                 <div>
@@ -721,6 +724,7 @@ function renderDashboard(d) {
                   <div class="target-price-val">$${(+tp).toFixed(2)}</div>
                 </div>
                 ${upsideHtml}
+                ${spyHtml}
               </div>
             </div>`;
           })()}
@@ -766,16 +770,6 @@ function renderDashboard(d) {
           ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
         </div>
         <div class="rank-lbl">12M Return</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
-        <div class="rank-val" style="font-size:1.1rem">
-          ${d.vs_sp500 != null
-            ? `<span style="color:${d.vs_sp500 >= 0 ? "var(--green)" : "var(--red)"}">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}%</span>
-               <span style="font-size:0.75rem;color:var(--text-3)"> vs SPY</span>`
-            : "—"}
-        </div>
-        <div class="rank-lbl">vs S&amp;P 500</div>
       </div>
     </div>
 
