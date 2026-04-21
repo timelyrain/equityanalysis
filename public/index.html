@@ -925,19 +925,20 @@ function renderDashboard(d) {
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item" style="flex:1">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-          ${(d.competitors || []).map(c => {
+        <div style="display:flex;gap:0;flex-wrap:wrap;align-items:flex-start">
+          ${(d.competitors || []).map((c, i, arr) => {
             const ps = (d.peer_scores || {})[c.ticker];
             const score = ps ? Math.round(ps.overall) : null;
             const ret = c.perf_year != null ? c.perf_year : null;
             const retColor = ret == null ? "var(--text-3)" : ret >= 0 ? "var(--green)" : "var(--red)";
             const retStr = ret != null ? `${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%` : "—";
             const scoreStr = score != null ? `${score}` : "—";
-            return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px">
-              <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;color:var(--text-1);letter-spacing:0.05em">${esc(c.ticker)}</span>
-              <span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
-              <span style="font-size:0.58rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M</span>
-            </div>`;
+            const divider = i < arr.length - 1 ? `<div style="width:1px;background:rgba(255,255,255,0.07);margin:2px 12px;align-self:stretch"></div>` : "";
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:90px;padding:4px 0">
+              <span style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--text-1);letter-spacing:0.06em">${esc(c.ticker)}</span>
+              <span style="font-family:var(--mono);font-size:0.75rem"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
+              <span style="font-size:0.6rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M</span>
+            </div>${divider}`;
           }).join("")}
         </div>
       </div>
