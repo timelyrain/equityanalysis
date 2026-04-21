@@ -624,6 +624,11 @@ document.getElementById("tickerInput").addEventListener("keydown", e => {
 
 // ── Render helpers ─────────────────────────────────────────
 
+function toTier(rank) {
+  const tiers = ["A", "B", "C", "D", "F"];
+  return tiers[Math.min((rank ?? 5) - 1, tiers.length - 1)] ?? "—";
+}
+
 function fmtNum(v, dec=1, suffix="") {
   if (v === null || v === undefined) return '<span class="fund-val na">—</span>';
   return `<span class="fund-val">${(+v).toFixed(dec)}${suffix}</span>`;
@@ -725,8 +730,8 @@ function renderDashboard(d) {
     <!-- RANKING BANNER -->
     <div class="ranking-banner">
       <div class="rank-item">
-        <div class="rank-val">#${r.overall_rank ?? "—"} <span style="font-size:0.85rem;color:var(--text-2)">of ${r.total_peers ?? "—"}</span></div>
-        <div class="rank-lbl">Overall Rank</div>
+        <div class="rank-val">${toTier(r.overall_rank)} <span style="font-size:0.85rem;color:var(--text-2)">of ${r.total_peers ?? "—"}</span></div>
+        <div class="rank-lbl">Overall Tier</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
@@ -735,23 +740,23 @@ function renderDashboard(d) {
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">#${r.valuation_rank ?? "—"}</div>
-        <div class="rank-lbl">Valuation Rank</div>
+        <div class="rank-val" style="color:var(--text-1)">${toTier(r.valuation_rank)}</div>
+        <div class="rank-lbl">Valuation</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">#${r.profitability_rank ?? "—"}</div>
-        <div class="rank-lbl">Profitability Rank</div>
+        <div class="rank-val" style="color:var(--text-1)">${toTier(r.profitability_rank)}</div>
+        <div class="rank-lbl">Profitability</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">#${r.growth_rank ?? "—"}</div>
-        <div class="rank-lbl">Growth Rank</div>
+        <div class="rank-val" style="color:var(--text-1)">${toTier(r.growth_rank)}</div>
+        <div class="rank-lbl">Growth</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val" style="color:var(--text-1)">#${r.health_rank ?? "—"}</div>
-        <div class="rank-lbl">Health Rank</div>
+        <div class="rank-val" style="color:var(--text-1)">${toTier(r.health_rank)}</div>
+        <div class="rank-lbl">Health</div>
       </div>
     </div>
 
@@ -893,7 +898,7 @@ function renderScoreCard(label, score, rank, total, isOverall) {
         <div class="ring-num" style="color:${color}">${s}</div>
       </div>
       <div class="score-label">${label}</div>
-      <div class="score-rank">#${rank ?? "—"} of ${total ?? "—"}</div>
+      <div class="score-rank">Tier ${toTier(rank)} of ${total ?? "—"}</div>
     </div>`;
 }
 
