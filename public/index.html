@@ -628,9 +628,9 @@ document.getElementById("tickerInput").addEventListener("keydown", e => {
 
 // ── Render helpers ─────────────────────────────────────────
 
-const TIER_COLORS = { A: "#2ed573", B: "#ffd32a", C: "#f5a623", D: "#ff4757" };
+const TIER_COLORS = { A: "#2ed573", B: "#00e5c3", C: "#ffd32a", D: "#f5a623", E: "#ff4757", F: "#ff4757" };
 function toTier(rank) {
-  const t = ["A", "B", "C", "D"][rank - 1];
+  const t = ["A", "B", "C", "D", "E", "F"][rank - 1];
   if (!t) return "—";
   return `<span style="color:${TIER_COLORS[t]}">${t}</span>`;
 }

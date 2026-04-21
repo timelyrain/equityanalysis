@@ -99,12 +99,29 @@ def fetch_fundamentals(ticker):
     }
 
 
-def fetch_competitors(ticker, limit=3):
-    try:
-        peers = fvf(ticker).ticker_peer()
-        return [t for t in peers if t.upper() != ticker.upper()][:limit]
-    except Exception:
+def identify_peers(ticker, company_name, sector, industry, api_key):
+    """Use Claude to identify 5 best-in-class publicly traded peers by business model."""
+    client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    response = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=100,
+        temperature=0,
+        messages=[{
+            "role": "user",
+            "content": (
+                f"List the 5 closest publicly traded competitors to {ticker} "
+                f"({company_name}, {sector} / {industry}) by actual business model and revenue overlap. "
+                f"Return ONLY a JSON array of uppercase ticker symbols, e.g. [\"AMD\",\"INTC\",\"QCOM\",\"AVGO\",\"TSM\"]. "
+                f"No explanation, no markdown, just the array."
+            ),
+        }],
+    )
+    text = next((b.text for b in response.content if b.type == "text"), "").strip()
+    match = re.search(r'\[.*?\]', text, re.DOTALL)
+    if not match:
         return []
+    tickers = json.loads(match.group(0))
+    return [t.upper() for t in tickers if t.upper() != ticker.upper()][:5]
 
 
 ANALYSIS_PROMPT = """You are a senior institutional equity analyst. You have been given pre-fetched fundamental data from Finviz. Use ONLY this data — do not search for anything.
@@ -114,7 +131,7 @@ DATA:
 {data_json}
 
 Your task:
-1. Score {ticker} on each dimension vs peers (0-100 scale):
+1. Score {ticker} on each dimension vs peers (0-100 scale, peers are true business competitors):
    - Valuation: 100 = cheapest, 0 = most expensive (use P/E, Forward P/E, EV/EBITDA, P/S, P/B)
    - Profitability: 100 = best margins/ROIC/ROE vs peers
    - Growth: 100 = fastest revenue/EPS growth vs peers
@@ -231,7 +248,16 @@ def analyze():
     except Exception as e:
         return jsonify({"error": f"Finviz data error for {ticker}: {str(e)}"}), 502
 
-    competitor_tickers = fetch_competitors(ticker)
+    try:
+        competitor_tickers = identify_peers(
+            ticker,
+            target.get("company_name", ticker),
+            target.get("sector", ""),
+            target.get("industry", ""),
+            api_key,
+        )
+    except Exception:
+        competitor_tickers = []
 
     competitors = []
     for ct in competitor_tickers:
