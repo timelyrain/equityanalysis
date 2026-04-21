@@ -97,7 +97,29 @@ def fetch_fundamentals(ticker):
         "current_price": parse_num(f.get("Price")),
         "target_price": parse_num(f.get("Target Price")),
         "perf_year": parse_num(f.get("Perf Year")),
+        "short_float": parse_num(f.get("Short Float")),
+        "short_ratio": parse_num(f.get("Short Ratio")),
     }
+
+
+def short_sentiment(short_float, short_ratio):
+    """Classify short interest into an actionable signal label."""
+    if short_float is None:
+        return "UNKNOWN"
+    if short_float < 2:
+        label = "LOW"
+    elif short_float < 5:
+        label = "NORMAL"
+    elif short_float < 10:
+        label = "ELEVATED"
+    elif short_float < 20:
+        label = "HIGH"
+    else:
+        label = "EXTREME"
+    # Upgrade to squeeze candidate if days-to-cover is also high
+    if short_ratio is not None and short_ratio >= 7 and short_float >= 10:
+        label = "SQUEEZE CANDIDATE"
+    return label
 
 
 def identify_peers(ticker, company_name, sector, industry, api_key):
@@ -257,9 +279,10 @@ NARRATIVE_PROMPT = """You are a senior institutional equity analyst. Fundamental
 
 TARGET: {ticker}
 COMPUTED SCORES: {scores_json}
+SHORT INTEREST: short_float={short_float}%, days_to_cover={short_ratio}, signal={short_signal}
 FULL DATA: {data_json}
 
-Write an institutional-grade narrative analysis. Return ONLY this JSON:
+Write an institutional-grade narrative analysis. Factor in the short interest signal when assessing risk and opportunity. Return ONLY this JSON:
 
 {{
   "strengths": ["string", "string", "string"],
@@ -335,11 +358,14 @@ def analyze():
         except Exception:
             continue
 
-    # Step 4: deterministic Python scoring
-    scoring = compute_scores(target, competitors)
-    scores   = scoring["scores"]
-    rankings = scoring["rankings"]
-    verdict  = score_to_verdict(scores["overall"])
+    # Step 4: deterministic Python scoring + short sentiment
+    scoring      = compute_scores(target, competitors)
+    scores       = scoring["scores"]
+    rankings     = scoring["rankings"]
+    verdict      = score_to_verdict(scores["overall"])
+    sf           = target.get("short_float")
+    sr           = target.get("short_ratio")
+    short_signal = short_sentiment(sf, sr)
 
     # Step 5: Claude writes narrative only
     all_data = {"target": target, "competitors": competitors}
@@ -355,6 +381,9 @@ def analyze():
                 "content": NARRATIVE_PROMPT.format(
                     ticker=ticker,
                     scores_json=json.dumps(scores, indent=2),
+                    short_float=sf if sf is not None else "N/A",
+                    short_ratio=sr if sr is not None else "N/A",
+                    short_signal=short_signal,
                     data_json=json.dumps(all_data, indent=2),
                 ),
             }],
@@ -388,6 +417,9 @@ def analyze():
             "perf_year":     target.get("perf_year"),
             "spy_perf_year": spy,
             "vs_sp500":      round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
+            "short_float":   sf,
+            "short_ratio":   sr,
+            "short_signal":  short_signal,
             "fundamentals": {
                 "market_cap_b":       target.get("market_cap_b"),
                 "pe_ratio":           target.get("pe_ratio"),

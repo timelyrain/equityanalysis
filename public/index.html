@@ -280,6 +280,37 @@
     .upside-tag.up   { background: rgba(46,213,115,0.12); color: var(--green); }
     .upside-tag.down { background: rgba(255,71,87,0.12);  color: var(--red); }
 
+    /* ─── SHORT INTEREST ─────────────────────────────── */
+    .short-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .short-item { display: flex; flex-direction: column; gap: 3px; }
+    .short-lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+    .short-val { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; color: var(--text-1); }
+    .short-signal {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 4px;
+      letter-spacing: 0.06em;
+    }
+    .sig-LOW            { background: rgba(46,213,115,0.12);  color: var(--green);  border: 1px solid var(--green); }
+    .sig-NORMAL         { background: rgba(0,229,195,0.08);   color: var(--teal);   border: 1px solid var(--teal); }
+    .sig-ELEVATED       { background: rgba(255,211,42,0.12);  color: var(--yellow); border: 1px solid var(--yellow); }
+    .sig-HIGH           { background: rgba(245,166,35,0.12);  color: var(--amber);  border: 1px solid var(--amber); }
+    .sig-EXTREME        { background: rgba(255,71,87,0.12);   color: var(--red);    border: 1px solid var(--red); }
+    .sig-SQUEEZE        { background: rgba(255,71,87,0.18);   color: var(--red);    border: 1px solid var(--red); }
+    .sig-UNKNOWN        { background: transparent; color: var(--text-3); border: 1px solid var(--border); }
+
     /* ─── RANKING BANNER ──────────────────────────────── */
     .ranking-banner {
       background: var(--bg-card);
@@ -653,6 +684,25 @@ function fmtGrowth(v) {
   return `<span class="fund-val ${cls}">${sign}${(+v).toFixed(1)}%</span>`;
 }
 
+function shortSignalClass(signal) {
+  if (!signal) return "sig-UNKNOWN";
+  if (signal.includes("SQUEEZE")) return "sig-SQUEEZE";
+  return "sig-" + signal.split(" ")[0];
+}
+
+function shortSignalDesc(signal, shortFloat) {
+  const descs = {
+    "LOW":              "Few bears — market has high confidence",
+    "NORMAL":           "Normal short activity — neutral sentiment",
+    "ELEVATED":         "Meaningful bearish bet in the market",
+    "HIGH":             "Significant institutional short thesis",
+    "EXTREME":          "Heavy shorting — high conviction bears",
+    "SQUEEZE CANDIDATE":"High short + slow unwind — squeeze risk",
+    "UNKNOWN":          "Data unavailable",
+  };
+  return descs[signal] || "";
+}
+
 function scoreColor(s) {
   if (s >= 75) return "#2ed573";
   if (s >= 55) return "#00e5c3";
@@ -738,6 +788,27 @@ function renderDashboard(d) {
 
     <!-- ANALYST VIEW -->
     ${d.verdict_rationale ? `<div class="analyst-view">${esc(d.verdict_rationale)}</div>` : ""}
+
+    <!-- SHORT INTEREST -->
+    ${d.short_signal ? `
+    <div class="short-bar">
+      <div class="short-item">
+        <span class="short-lbl">Market Sentiment</span>
+        <span class="short-signal ${shortSignalClass(d.short_signal)}">${esc(d.short_signal)}</span>
+      </div>
+      <div class="short-item">
+        <span class="short-lbl">Short Float</span>
+        <span class="short-val">${d.short_float != null ? d.short_float.toFixed(2) + "%" : "—"}</span>
+      </div>
+      <div class="short-item">
+        <span class="short-lbl">Days to Cover</span>
+        <span class="short-val">${d.short_ratio != null ? d.short_ratio.toFixed(1) + "d" : "—"}</span>
+      </div>
+      <div class="short-item" style="flex:1">
+        <span class="short-lbl">What it means</span>
+        <span style="font-size:0.72rem;color:var(--text-2)">${shortSignalDesc(d.short_signal, d.short_float)}</span>
+      </div>
+    </div>` : ""}
 
     <!-- RANKING BANNER -->
     <div class="ranking-banner">
