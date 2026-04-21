@@ -879,11 +879,6 @@ function renderDashboard(d) {
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
-        <div class="rank-val">${r.sector_percentile ?? "—"}<span style="font-size:0.85rem;color:var(--text-2)">th</span></div>
-        <div class="rank-lbl">Sector Percentile</div>
-      </div>
-      <div class="rank-divider"></div>
-      <div class="rank-item">
         <div class="rank-val" style="color:var(--text-1)">${toTier(r.valuation_rank)}</div>
         <div class="rank-lbl">Valuation</div>
       </div>
@@ -901,6 +896,11 @@ function renderDashboard(d) {
       <div class="rank-item">
         <div class="rank-val" style="color:var(--text-1)">${toTier(r.health_rank)}</div>
         <div class="rank-lbl">Health</div>
+      </div>
+      <div class="rank-divider"></div>
+      <div class="rank-item">
+        <div class="rank-val">${r.sector_percentile ?? "—"}<span style="font-size:0.85rem;color:var(--text-2)">th</span></div>
+        <div class="rank-lbl">Sector Percentile</div>
       </div>
       <div class="rank-divider"></div>
       <div class="rank-item">
