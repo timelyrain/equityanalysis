@@ -248,6 +248,33 @@
       margin-top: 8px;
       max-width: 400px;
     }
+    .target-price-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .target-price-val {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-1);
+    }
+    .target-price-lbl {
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .upside-tag {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .upside-tag.up   { background: rgba(46,213,115,0.12); color: var(--green); }
+    .upside-tag.down { background: rgba(255,71,87,0.12);  color: var(--red); }
 
     /* ─── RANKING BANNER ──────────────────────────────── */
     .ranking-banner {
@@ -666,10 +693,29 @@ function renderDashboard(d) {
         </div>
       </div>
       <div>
-        <div class="verdict-badge verdict-${esc(verdictKey)}">
-          <span>${esc(d.analyst_verdict) || "HOLD"}</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="verdict-badge verdict-${esc(verdictKey)}">
+            <span>${esc(d.analyst_verdict) || "HOLD"}</span>
+          </div>
+          ${(() => {
+            const tp = d.target_price, cp = d.current_price;
+            if (!tp) return "";
+            const upside = cp ? ((tp - cp) / cp * 100) : null;
+            const upsideHtml = upside !== null
+              ? `<span class="upside-tag ${upside >= 0 ? "up" : "down"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</span>`
+              : "";
+            return `<div>
+              <div class="target-price-block">
+                <div>
+                  <div class="target-price-lbl">Analyst Target</div>
+                  <div class="target-price-val">$${(+tp).toFixed(2)}</div>
+                </div>
+                ${upsideHtml}
+              </div>
+            </div>`;
+          })()}
         </div>
-        <p class="verdict-rationale">${esc(d.verdict_rationale)}</p>
+        <p class="verdict-rationale" style="margin-top:10px">${esc(d.verdict_rationale)}</p>
       </div>
     </div>
 

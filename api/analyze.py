@@ -77,6 +77,8 @@ def fetch_fundamentals(ticker):
         "fcf_yield": fcf_yield,
         "dividend_yield": dividend_yield,
         "analyst_recom": f.get("Recom"),
+        "current_price": parse_num(f.get("Price")),
+        "target_price": parse_num(f.get("Target Price")),
     }
 
 
@@ -254,6 +256,8 @@ def analyze():
             full_text = json_match.group(0)
 
         result = json.loads(full_text)
+        result["current_price"] = target.get("current_price")
+        result["target_price"] = target.get("target_price")
         return jsonify(result)
 
     except json.JSONDecodeError as e:
