@@ -310,6 +310,51 @@
     .sig-EXTREME        { background: rgba(255,71,87,0.12);   color: var(--red);    border: 1px solid var(--red); }
     .sig-SQUEEZE        { background: rgba(255,71,87,0.18);   color: var(--red);    border: 1px solid var(--red); }
     .sig-UNKNOWN        { background: transparent; color: var(--text-3); border: 1px solid var(--border); }
+    .short-signal-wrap  { position: relative; display: inline-block; cursor: default; }
+    .short-tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 200;
+      background: #13152a;
+      border: 1px solid var(--border-hi);
+      border-radius: 8px;
+      padding: 14px 16px;
+      min-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .short-signal-wrap:hover .short-tooltip { display: block; }
+    .tooltip-title {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 10px;
+    }
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      gap: 16px;
+    }
+    .tooltip-row:last-child { border-bottom: none; }
+    .tooltip-badge {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .tooltip-desc { font-size: 0.68rem; color: var(--text-2); text-align: right; }
+    .tooltip-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
 
     /* ─── RANKING BANNER ──────────────────────────────── */
     .ranking-banner {
@@ -794,7 +839,23 @@ function renderDashboard(d) {
     <div class="short-bar">
       <div class="short-item">
         <span class="short-lbl">Market Sentiment</span>
-        <span class="short-signal ${shortSignalClass(d.short_signal)}">${esc(d.short_signal)}</span>
+        <span class="short-signal-wrap">
+          <span class="short-signal ${shortSignalClass(d.short_signal)}">${esc(d.short_signal)}</span>
+          <div class="short-tooltip">
+            <div class="tooltip-title">Short Float % — Bearish Conviction</div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-LOW">&lt; 2%&nbsp;&nbsp;LOW</span><span class="tooltip-desc">Very low — market has high confidence</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">2–5%&nbsp;&nbsp;NORMAL</span><span class="tooltip-desc">Normal range — neutral sentiment</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">5–10%&nbsp;&nbsp;ELEVATED</span><span class="tooltip-desc">Meaningful bearish bet in the market</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-HIGH">10–20%&nbsp;&nbsp;HIGH</span><span class="tooltip-desc">Significant institutional short thesis</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-EXTREME">&gt; 20%&nbsp;&nbsp;EXTREME</span><span class="tooltip-desc">Heavy shorting — high conviction bears</span></div>
+            <hr class="tooltip-divider"/>
+            <div class="tooltip-title">Days to Cover — Squeeze Risk</div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-LOW">&lt; 3d</span><span class="tooltip-desc">Normal — easy to unwind</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">3–7d</span><span class="tooltip-desc">Elevated — squeeze potential building</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-HIGH">&gt; 7d</span><span class="tooltip-desc">High — forced buying amplifies upside moves</span></div>
+            <div class="tooltip-row"><span class="tooltip-badge sig-SQUEEZE">≥10% + &gt;7d&nbsp;&nbsp;SQUEEZE</span><span class="tooltip-desc">Squeeze candidate — high risk/reward</span></div>
+          </div>
+        </span>
       </div>
       <div class="short-item">
         <span class="short-lbl">Short Float</span>
