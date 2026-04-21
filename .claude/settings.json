@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.venv/bin/python -c ' *)"
+      "Bash(.venv/bin/python -c ' *)",
+      "WebFetch(domain:pypi.org)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:finvizfinance.readthedocs.io)",
+      "Bash(curl -s http://localhost:5001/api/health)",
+      "Bash(curl -s -X POST http://localhost:5001/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(vercel --prod)",
+      "Bash(curl -s -X POST https://equityanalysis.vercel.app/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')"
+    ],
+    "additionalDirectories": [
+      "/Users/hongkiatkoh/Developer/equityanalysis"
     ]
   }
 }

@@ -4,7 +4,6 @@ import re
 
 import anthropic
 from finvizfinance.quote import finvizfinance as fvf
-from finvizfinance.screener.overview import Overview
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -13,7 +12,6 @@ CORS(app)
 
 
 def parse_num(val):
-    """Convert Finviz string values to float, return None if unavailable."""
     if not val or val in ("-", "N/A", ""):
         return None
     val = str(val).strip().replace(",", "").replace("%", "").replace("$", "")
@@ -30,12 +28,30 @@ def parse_num(val):
 
 
 def fetch_fundamentals(ticker):
-    """Fetch fundamental data from Finviz for a given ticker."""
     stock = fvf(ticker)
     f = stock.ticker_fundament()
 
     market_cap_raw = parse_num(f.get("Market Cap"))
     market_cap_b = round(market_cap_raw / 1e9, 2) if market_cap_raw else None
+
+    ev_raw = parse_num(f.get("Enterprise Value"))
+    ev_b = ev_raw / 1e9 if ev_raw else None
+
+    ev_ebitda = parse_num(f.get("EV/EBITDA"))
+
+    # Net Debt/EBITDA = (EV - MarketCap) / (EV / EV_EBITDA)
+    net_debt_ebitda = None
+    if ev_b and market_cap_b and ev_ebitda and ev_ebitda != 0:
+        ebitda_b = ev_b / ev_ebitda
+        net_debt_ebitda = round((ev_b - market_cap_b) / ebitda_b, 2) if ebitda_b else None
+
+    pfcf = parse_num(f.get("P/FCF"))
+    fcf_yield = round(100 / pfcf, 2) if pfcf else None
+
+    # Dividend yield is buried in "Dividend TTM" as "1.04 (0.38%)" — extract the pct
+    div_ttm = f.get("Dividend TTM", "")
+    div_match = re.search(r"\(([\d.]+)%\)", div_ttm or "")
+    dividend_yield = float(div_match.group(1)) if div_match else None
 
     return {
         "ticker": ticker.upper(),
@@ -45,41 +61,29 @@ def fetch_fundamentals(ticker):
         "market_cap_b": market_cap_b,
         "pe_ratio": parse_num(f.get("P/E")),
         "forward_pe": parse_num(f.get("Forward P/E")),
-        "ev_ebitda": parse_num(f.get("EV/EBITDA")),
+        "ev_ebitda": ev_ebitda,
         "ps_ratio": parse_num(f.get("P/S")),
         "pb_ratio": parse_num(f.get("P/B")),
         "gross_margin": parse_num(f.get("Gross Margin")),
-        "operating_margin": parse_num(f.get("Operating Margin")),
-        "net_margin": parse_num(f.get("Net Margin")),
+        "operating_margin": parse_num(f.get("Oper. Margin")),
+        "net_margin": parse_num(f.get("Profit Margin")),
         "roe": parse_num(f.get("ROE")),
-        "roic": parse_num(f.get("ROI")),
+        "roic": parse_num(f.get("ROIC")),
         "revenue_growth_yoy": parse_num(f.get("Sales Y/Y TTM")),
         "eps_growth_yoy": parse_num(f.get("EPS Y/Y TTM")),
         "current_ratio": parse_num(f.get("Current Ratio")),
         "debt_eq": parse_num(f.get("Debt/Eq")),
-        "dividend_yield": parse_num(f.get("Dividend %")),
-        "pfcf": parse_num(f.get("P/FCF")),
+        "net_debt_ebitda": net_debt_ebitda,
+        "fcf_yield": fcf_yield,
+        "dividend_yield": dividend_yield,
         "analyst_recom": f.get("Recom"),
     }
 
 
-def fetch_competitors(ticker, industry, sector, limit=3):
-    """Find top competitors by market cap in the same industry."""
+def fetch_competitors(ticker, limit=3):
     try:
-        screener = Overview()
-        screener.set_filter(filters_dict={"Industry": industry})
-        df = screener.screener_view()
-        if df is None or df.empty:
-            screener.set_filter(filters_dict={"Sector": sector})
-            df = screener.screener_view()
-        if df is None or df.empty:
-            return []
-
-        if "Market Cap" in df.columns:
-            df["_mc"] = df["Market Cap"].apply(parse_num)
-            df = df.sort_values("_mc", ascending=False)
-        tickers = [t for t in df["Ticker"].tolist() if t.upper() != ticker.upper()]
-        return tickers[:limit]
+        peers = fvf(ticker).ticker_peer()
+        return [t for t in peers if t.upper() != ticker.upper()][:limit]
     except Exception:
         return []
 
@@ -95,7 +99,7 @@ Your task:
    - Valuation: 100 = cheapest, 0 = most expensive (use P/E, Forward P/E, EV/EBITDA, P/S, P/B)
    - Profitability: 100 = best margins/ROIC/ROE vs peers
    - Growth: 100 = fastest revenue/EPS growth vs peers
-   - Financial Health: 100 = strongest balance sheet (low debt, high current ratio)
+   - Financial Health: 100 = strongest balance sheet (low debt/EBITDA, high current ratio, low debt_eq)
    - Overall = weighted avg (profitability 30%, growth 25%, health 25%, valuation 20%)
 2. Rank {ticker} among all companies (1 = best). Estimate sector_percentile (0-100).
 3. Write 3 strengths, 3 weaknesses, 2 key risks, bull case, bear case, analyst verdict.
@@ -122,7 +126,7 @@ Return ONLY this JSON (null for missing data, percentages as floats e.g. 44.5):
     "roe": float,
     "revenue_growth_yoy": float,
     "eps_growth_yoy": float,
-    "net_debt_ebitda": null,
+    "net_debt_ebitda": float,
     "current_ratio": float,
     "fcf_yield": float,
     "interest_coverage": null,
@@ -142,7 +146,7 @@ Return ONLY this JSON (null for missing data, percentages as floats e.g. 44.5):
       "roic": float,
       "revenue_growth_yoy": float,
       "eps_growth_yoy": float,
-      "net_debt_ebitda": null,
+      "net_debt_ebitda": float,
       "fcf_yield": float
     }}
   ],
@@ -208,9 +212,7 @@ def analyze():
     except Exception as e:
         return jsonify({"error": f"Finviz data error for {ticker}: {str(e)}"}), 502
 
-    competitor_tickers = fetch_competitors(
-        ticker, target.get("industry", ""), target.get("sector", "")
-    )
+    competitor_tickers = fetch_competitors(ticker)
 
     competitors = []
     for ct in competitor_tickers:
@@ -221,7 +223,8 @@ def analyze():
 
     all_data = {"target": target, "competitors": competitors}
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=60.0)
+    # Vercel allows 120s; Finviz scraping uses ~15-20s, leave 100s for Claude
+    client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
 
     try:
         response = client.messages.create(
