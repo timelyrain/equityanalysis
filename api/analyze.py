@@ -14,6 +14,7 @@ CORS(app)
 _spy_cache = {"perf_year": None, "ts": 0}
 _SPY_TTL = 86400  # 24 hours
 
+
 def get_spy_perf():
     if time.time() - _spy_cache["ts"] < _SPY_TTL and _spy_cache["perf_year"] is not None:
         return _spy_cache["perf_year"]
@@ -124,92 +125,157 @@ def identify_peers(ticker, company_name, sector, industry, api_key):
     return [t.upper() for t in tickers if t.upper() != ticker.upper()][:5]
 
 
-ANALYSIS_PROMPT = """You are a senior institutional equity analyst. You have been given pre-fetched fundamental data from Finviz. Use ONLY this data — do not search for anything.
+# ── Scoring engine ────────────────────────────────────────────────────────────
+
+def rank_metric(pairs, lower_is_better=False):
+    """
+    Score each company 0-100 on a single metric using linear relative ranking.
+    pairs: list of (ticker, value). None values receive a neutral 50.
+    Rank 1 (best) = 100, Rank N (worst) = 0.
+    """
+    valid = [(t, v) for t, v in pairs if v is not None]
+    n = len(valid)
+    scores = {t: 50 for t, _ in pairs}  # default neutral for missing data
+    if n < 2:
+        if n == 1:
+            scores[valid[0][0]] = 50
+        return scores
+    sorted_vals = sorted(valid, key=lambda x: x[1], reverse=not lower_is_better)
+    for rank_idx, (t, _) in enumerate(sorted_vals):
+        scores[t] = round(((n - 1 - rank_idx) / (n - 1)) * 100)
+    return scores
+
+
+def avg_scores(score_dicts, ticker):
+    """Average a ticker's score across multiple metric score dicts."""
+    vals = [d[ticker] for d in score_dicts if ticker in d]
+    return round(sum(vals) / len(vals)) if vals else 50
+
+
+def compute_scores(target, competitors):
+    """
+    Deterministic multi-factor relative ranking.
+    Methodology mirrors institutional factor models (MSCI Quality, GS factor baskets):
+      - Valuation  20%: P/E, Forward P/E, EV/EBITDA, P/S, P/B  (lower = better)
+      - Profitability 30%: Gross Margin, Op Margin, Net Margin, ROIC, ROE (higher = better)
+      - Growth     25%: Revenue Growth YoY, EPS Growth YoY       (higher = better)
+      - Health     25%: Current Ratio (higher), Net Debt/EBITDA (lower), Debt/Eq (lower)
+    """
+    all_cos = [target] + competitors
+    tickers = [c["ticker"] for c in all_cos]
+
+    def pairs(field, sanitize=None):
+        result = []
+        for c in all_cos:
+            v = c.get(field)
+            if sanitize:
+                v = sanitize(v)
+            result.append((c["ticker"], v))
+        return result
+
+    # Negative P/E means losses — not comparable, treat as missing
+    def positive_only(v):
+        return v if (v is not None and v > 0) else None
+
+    # Valuation (lower = better)
+    val_scores = [
+        rank_metric(pairs("pe_ratio",    positive_only), lower_is_better=True),
+        rank_metric(pairs("forward_pe",  positive_only), lower_is_better=True),
+        rank_metric(pairs("ev_ebitda"),                  lower_is_better=True),
+        rank_metric(pairs("ps_ratio"),                   lower_is_better=True),
+        rank_metric(pairs("pb_ratio"),                   lower_is_better=True),
+    ]
+
+    # Profitability (higher = better)
+    prof_scores = [
+        rank_metric(pairs("gross_margin")),
+        rank_metric(pairs("operating_margin")),
+        rank_metric(pairs("net_margin")),
+        rank_metric(pairs("roic")),
+        rank_metric(pairs("roe")),
+    ]
+
+    # Growth (higher = better)
+    growth_scores = [
+        rank_metric(pairs("revenue_growth_yoy")),
+        rank_metric(pairs("eps_growth_yoy")),
+    ]
+
+    # Health (mixed directions)
+    health_scores = [
+        rank_metric(pairs("current_ratio"),     lower_is_better=False),
+        rank_metric(pairs("net_debt_ebitda"),   lower_is_better=True),
+        rank_metric(pairs("debt_eq"),           lower_is_better=True),
+    ]
+
+    results = {}
+    for t in tickers:
+        v = avg_scores(val_scores,    t)
+        p = avg_scores(prof_scores,   t)
+        g = avg_scores(growth_scores, t)
+        h = avg_scores(health_scores, t)
+        o = round(p * 0.30 + g * 0.25 + h * 0.25 + v * 0.20)
+        results[t] = {"valuation": v, "profitability": p, "growth": g, "health": h, "overall": o}
+
+    def rank_by(key):
+        ranked = sorted(tickers, key=lambda t: results[t][key], reverse=True)
+        return {t: i + 1 for i, t in enumerate(ranked)}
+
+    tgt = target["ticker"]
+    n   = len(all_cos)
+    return {
+        "scores": {
+            "valuation":       results[tgt]["valuation"],
+            "profitability":   results[tgt]["profitability"],
+            "growth":          results[tgt]["growth"],
+            "financial_health":results[tgt]["health"],
+            "overall":         results[tgt]["overall"],
+        },
+        "rankings": {
+            "total_peers":        n,
+            "overall_rank":       rank_by("overall")[tgt],
+            "valuation_rank":     rank_by("valuation")[tgt],
+            "profitability_rank": rank_by("profitability")[tgt],
+            "growth_rank":        rank_by("growth")[tgt],
+            "health_rank":        rank_by("health")[tgt],
+        },
+        "peer_scores": results,
+    }
+
+
+def score_to_verdict(overall):
+    if overall >= 80: return "STRONG BUY"
+    if overall >= 65: return "BUY"
+    if overall >= 45: return "HOLD"
+    if overall >= 25: return "UNDERPERFORM"
+    return "AVOID"
+
+
+# ── Narrative prompt (Claude writes analysis only, no scoring) ────────────────
+
+NARRATIVE_PROMPT = """You are a senior institutional equity analyst. Fundamental data and scores have already been calculated. Use ONLY the data provided — do not search for anything.
 
 TARGET: {ticker}
-DATA:
-{data_json}
+COMPUTED SCORES: {scores_json}
+FULL DATA: {data_json}
 
-Your task:
-1. Score {ticker} on each dimension vs peers (0-100 scale, peers are true business competitors):
-   - Valuation: 100 = cheapest, 0 = most expensive (use P/E, Forward P/E, EV/EBITDA, P/S, P/B)
-   - Profitability: 100 = best margins/ROIC/ROE vs peers
-   - Growth: 100 = fastest revenue/EPS growth vs peers
-   - Financial Health: 100 = strongest balance sheet (low debt/EBITDA, high current ratio, low debt_eq)
-   - Overall = weighted avg (profitability 30%, growth 25%, health 25%, valuation 20%)
-2. Rank {ticker} among all companies (1 = best). Estimate sector_percentile (0-100).
-3. Write 3 strengths, 3 weaknesses, 2 key risks, bull case, bear case, analyst verdict.
-
-Return ONLY this JSON (null for missing data, percentages as floats e.g. 44.5):
+Write an institutional-grade narrative analysis. Return ONLY this JSON:
 
 {{
-  "ticker": "{ticker}",
-  "company_name": "string",
-  "sector": "string",
-  "industry": "string",
-  "data_as_of": "Latest (Finviz)",
-  "fundamentals": {{
-    "market_cap_b": float,
-    "pe_ratio": float,
-    "forward_pe": float,
-    "ev_ebitda": float,
-    "ps_ratio": float,
-    "pb_ratio": float,
-    "gross_margin": float,
-    "operating_margin": float,
-    "net_margin": float,
-    "roic": float,
-    "roe": float,
-    "revenue_growth_yoy": float,
-    "eps_growth_yoy": float,
-    "net_debt_ebitda": float,
-    "current_ratio": float,
-    "fcf_yield": float,
-    "interest_coverage": null,
-    "dividend_yield": float
-  }},
-  "competitors": [
-    {{
-      "ticker": "string",
-      "company_name": "string",
-      "market_cap_b": float,
-      "pe_ratio": float,
-      "ev_ebitda": float,
-      "ps_ratio": float,
-      "gross_margin": float,
-      "operating_margin": float,
-      "net_margin": float,
-      "roic": float,
-      "revenue_growth_yoy": float,
-      "eps_growth_yoy": float,
-      "net_debt_ebitda": float,
-      "fcf_yield": float
-    }}
-  ],
-  "scores": {{
-    "valuation": integer,
-    "profitability": integer,
-    "growth": integer,
-    "financial_health": integer,
-    "overall": integer
-  }},
-  "rankings": {{
-    "overall_rank": integer,
-    "total_peers": integer,
-    "valuation_rank": integer,
-    "profitability_rank": integer,
-    "growth_rank": integer,
-    "health_rank": integer,
-    "sector_percentile": integer
-  }},
   "strengths": ["string", "string", "string"],
   "weaknesses": ["string", "string", "string"],
   "key_risks": ["string", "string", "string"],
   "bull_case": ["string", "string", "string"],
   "bear_case": ["string", "string", "string"],
-  "analyst_verdict": "STRONG BUY | BUY | HOLD | UNDERPERFORM | AVOID",
-  "verdict_rationale": "string"
-}}"""
+  "verdict_rationale": "string",
+  "sector_percentile": integer
+}}
+
+Rules:
+- strengths/weaknesses/bull_case/bear_case: 3 specific, data-backed points each
+- key_risks: 3 concrete risks with potential impact
+- verdict_rationale: 2-3 sentences referencing the computed scores and key metrics
+- sector_percentile: your estimate (0-100) of where {ticker} ranks in its broader sector universe"""
 
 
 @app.route("/api/test-key", methods=["GET"])
@@ -243,11 +309,13 @@ def analyze():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured on server"}), 500
 
+    # Step 1: fetch target
     try:
         target = fetch_fundamentals(ticker)
     except Exception as e:
         return jsonify({"error": f"Finviz data error for {ticker}: {str(e)}"}), 502
 
+    # Step 2: Claude identifies best-in-class peers
     try:
         competitor_tickers = identify_peers(
             ticker,
@@ -259,6 +327,7 @@ def analyze():
     except Exception:
         competitor_tickers = []
 
+    # Step 3: fetch peer fundamentals
     competitors = []
     for ct in competitor_tickers:
         try:
@@ -266,20 +335,26 @@ def analyze():
         except Exception:
             continue
 
-    all_data = {"target": target, "competitors": competitors}
+    # Step 4: deterministic Python scoring
+    scoring = compute_scores(target, competitors)
+    scores   = scoring["scores"]
+    rankings = scoring["rankings"]
+    verdict  = score_to_verdict(scores["overall"])
 
-    # Vercel allows 120s; Finviz scraping uses ~15-20s, leave 100s for Claude
+    # Step 5: Claude writes narrative only
+    all_data = {"target": target, "competitors": competitors}
     client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
 
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=4000,
+            max_tokens=3000,
             temperature=0,
             messages=[{
                 "role": "user",
-                "content": ANALYSIS_PROMPT.format(
+                "content": NARRATIVE_PROMPT.format(
                     ticker=ticker,
+                    scores_json=json.dumps(scores, indent=2),
                     data_json=json.dumps(all_data, indent=2),
                 ),
             }],
@@ -298,13 +373,70 @@ def analyze():
         if json_match:
             full_text = json_match.group(0)
 
-        result = json.loads(full_text)
-        result["current_price"] = target.get("current_price")
-        result["target_price"] = target.get("target_price")
-        result["perf_year"] = target.get("perf_year")
+        narrative = json.loads(full_text)
+
+        # Build final result: Python data + Python scores + Claude narrative
         spy = get_spy_perf()
-        result["spy_perf_year"] = spy
-        result["vs_sp500"] = round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None
+        result = {
+            "ticker":        target["ticker"],
+            "company_name":  target["company_name"],
+            "sector":        target["sector"],
+            "industry":      target["industry"],
+            "data_as_of":    "Latest (Finviz)",
+            "current_price": target.get("current_price"),
+            "target_price":  target.get("target_price"),
+            "perf_year":     target.get("perf_year"),
+            "spy_perf_year": spy,
+            "vs_sp500":      round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
+            "fundamentals": {
+                "market_cap_b":       target.get("market_cap_b"),
+                "pe_ratio":           target.get("pe_ratio"),
+                "forward_pe":         target.get("forward_pe"),
+                "ev_ebitda":          target.get("ev_ebitda"),
+                "ps_ratio":           target.get("ps_ratio"),
+                "pb_ratio":           target.get("pb_ratio"),
+                "gross_margin":       target.get("gross_margin"),
+                "operating_margin":   target.get("operating_margin"),
+                "net_margin":         target.get("net_margin"),
+                "roic":               target.get("roic"),
+                "roe":                target.get("roe"),
+                "revenue_growth_yoy": target.get("revenue_growth_yoy"),
+                "eps_growth_yoy":     target.get("eps_growth_yoy"),
+                "net_debt_ebitda":    target.get("net_debt_ebitda"),
+                "current_ratio":      target.get("current_ratio"),
+                "fcf_yield":          target.get("fcf_yield"),
+                "interest_coverage":  None,
+                "dividend_yield":     target.get("dividend_yield"),
+            },
+            "competitors": [
+                {
+                    "ticker":             c.get("ticker"),
+                    "company_name":       c.get("company_name"),
+                    "market_cap_b":       c.get("market_cap_b"),
+                    "pe_ratio":           c.get("pe_ratio"),
+                    "ev_ebitda":          c.get("ev_ebitda"),
+                    "ps_ratio":           c.get("ps_ratio"),
+                    "gross_margin":       c.get("gross_margin"),
+                    "operating_margin":   c.get("operating_margin"),
+                    "net_margin":         c.get("net_margin"),
+                    "roic":               c.get("roic"),
+                    "revenue_growth_yoy": c.get("revenue_growth_yoy"),
+                    "eps_growth_yoy":     c.get("eps_growth_yoy"),
+                    "net_debt_ebitda":    c.get("net_debt_ebitda"),
+                    "fcf_yield":          c.get("fcf_yield"),
+                }
+                for c in competitors
+            ],
+            "scores":   scores,
+            "rankings": {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)},
+            "analyst_verdict":  verdict,
+            "strengths":        narrative.get("strengths", []),
+            "weaknesses":       narrative.get("weaknesses", []),
+            "key_risks":        narrative.get("key_risks", []),
+            "bull_case":        narrative.get("bull_case", []),
+            "bear_case":        narrative.get("bear_case", []),
+            "verdict_rationale": narrative.get("verdict_rationale", ""),
+        }
         return jsonify(result)
 
     except json.JSONDecodeError as e:
