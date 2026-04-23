@@ -1,7 +1,11 @@
 import json
+import logging
 import os
 import re
 import time
+from datetime import date
+
+logger = logging.getLogger(__name__)
 
 import anthropic
 import yfinance as yf
@@ -12,8 +16,13 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+CLAUDE_MODEL      = "claude-sonnet-4-6"  # narrative + peer identification
+CLAUDE_MODEL_FAST = "claude-haiku-4-5"   # ticker resolution only
+
 _spy_cache = {"perf_year": None, "ts": 0}
 _SPY_TTL = 86400  # 24 hours
+
+_ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
 
 
 def get_spy_perf():
@@ -141,11 +150,32 @@ def short_sentiment(short_float, short_ratio):
     return label
 
 
+def resolve_ticker(query, api_key):
+    """Resolve a company name or misspelled input to a valid US ticker symbol."""
+    client = anthropic.Anthropic(api_key=api_key, timeout=15.0)
+    response = client.messages.create(
+        model=CLAUDE_MODEL_FAST,
+        max_tokens=10,
+        temperature=0,
+        messages=[{
+            "role": "user",
+            "content": (
+                f'What is the primary US stock exchange ticker symbol for "{query}"? '
+                f'Reply with ONLY the ticker symbol in uppercase. If unknown, reply UNKNOWN.'
+            ),
+        }],
+    )
+    text = next((b.text for b in response.content if b.type == "text"), "").strip().upper()
+    if re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', text):
+        return text
+    return None
+
+
 def identify_peers(ticker, company_name, sector, industry, api_key):
     """Use Claude to identify 5 best-in-class publicly traded peers by business model."""
     client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
     response = client.messages.create(
-        model="claude-haiku-4-5",
+        model=CLAUDE_MODEL,
         max_tokens=100,
         temperature=0,
         messages=[{
@@ -284,6 +314,28 @@ def compute_scores(target, competitors):
     }
 
 
+def extract_narrative_json(text):
+    """Extract and parse JSON from Claude's narrative response."""
+    if "```" in text:
+        match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
+        if match:
+            text = match.group(1)
+    json_match = re.search(r"\{[\s\S]+\}", text)
+    if json_match:
+        text = json_match.group(0)
+    return json.loads(text)
+
+
+def validate_narrative(n):
+    """Return True only if all required narrative keys are present and non-empty."""
+    required_lists = ["strengths", "weaknesses", "key_risks", "bull_case", "bear_case"]
+    required_strs  = ["verdict_rationale"]
+    return (
+        all(isinstance(n.get(k), list) and len(n[k]) > 0 for k in required_lists)
+        and all(isinstance(n.get(k), str) and n[k].strip() for k in required_strs)
+    )
+
+
 def score_to_verdict(overall):
     if overall >= 80: return "STRONG BUY"
     if overall >= 65: return "BUY"
@@ -320,6 +372,29 @@ Rules:
 - sector_percentile: your estimate (0-100) of where {ticker} ranks in its broader sector universe"""
 
 
+def get_valid_codes():
+    raw = os.environ.get("INVITE_CODES", "")
+    return {c.strip().upper() for c in raw.split(",") if c.strip()}
+
+
+def check_invite_code(req):
+    codes = get_valid_codes()
+    if not codes:
+        return True  # no codes configured = unrestricted
+    code = req.headers.get("X-Invite-Code", "").strip().upper()
+    return code in codes
+
+
+@app.route("/api/verify-code", methods=["POST"])
+def verify_code():
+    data = request.get_json(silent=True) or {}
+    code = data.get("code", "").strip().upper()
+    if not code:
+        return jsonify({"valid": False}), 400
+    valid = code in get_valid_codes()
+    return jsonify({"valid": valid})
+
+
 @app.route("/api/test-key", methods=["GET"])
 def test_key():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -328,48 +403,81 @@ def test_key():
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-haiku-4-5",
+            model=CLAUDE_MODEL,
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}],
         )
         return jsonify({"status": "ok", "model": response.model})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error("API key test failed: %s", e)
+        return jsonify({"error": "API key test failed"}), 500
 
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    data = request.get_json(silent=True) or {}
-    ticker = data.get("ticker", "").strip().upper()
+    if not check_invite_code(request):
+        return jsonify({"error": "Invalid or missing invite code."}), 403
 
-    if not ticker:
-        return jsonify({"error": "Ticker symbol is required"}), 400
-    if not re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', ticker):
-        return jsonify({"error": "Invalid ticker format"}), 400
+    data = request.get_json(silent=True) or {}
+    raw_input = data.get("ticker", "").strip()
+
+    if not raw_input:
+        return jsonify({"error": "Ticker symbol or company name is required"}), 400
+    if len(raw_input) > 60:
+        return jsonify({"error": "Input too long"}), 400
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured on server"}), 500
 
+    # If input already looks like a ticker use it directly, otherwise resolve via Claude
+    normalized = raw_input.upper()
+    if re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', normalized):
+        ticker = normalized
+        resolved_from = None
+    else:
+        ticker = resolve_ticker(raw_input, api_key)
+        if not ticker:
+            return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA).'}), 400
+        resolved_from = raw_input
+
+    # Return cached result if same ticker was analysed today
+    cached = _ticker_cache.get(ticker)
+    if cached and cached["date"] == date.today():
+        return jsonify({**cached["result"], "cache_hit": True})
+
     # Step 1: fetch target
     try:
         target = fetch_fundamentals(ticker)
     except Exception as e:
-        return jsonify({"error": f"Finviz data error for {ticker}: {str(e)}"}), 502
+        logger.error("Finviz fetch failed for %s: %s", ticker, e)
+        return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
     earnings_date = fetch_earnings_date(ticker)
 
-    # Step 2: Claude identifies best-in-class peers
-    try:
-        competitor_tickers = identify_peers(
-            ticker,
-            target.get("company_name", ticker),
-            target.get("sector", ""),
-            target.get("industry", ""),
-            api_key,
-        )
-    except Exception:
-        competitor_tickers = []
+    # Step 2: Claude identifies best-in-class peers (one retry on failure)
+    def _identify_peers_with_retry():
+        try:
+            return identify_peers(
+                ticker,
+                target.get("company_name", ticker),
+                target.get("sector", ""),
+                target.get("industry", ""),
+                api_key,
+            )
+        except Exception:
+            try:
+                return identify_peers(
+                    ticker,
+                    target.get("company_name", ticker),
+                    target.get("sector", ""),
+                    target.get("industry", ""),
+                    api_key,
+                )
+            except Exception:
+                return []
+
+    competitor_tickers = _identify_peers_with_retry()
 
     # Step 3: fetch peer fundamentals
     competitors = []
@@ -380,14 +488,23 @@ def analyze():
             continue
 
     # Step 4: deterministic Python scoring + short sentiment
-    scoring      = compute_scores(target, competitors)
-    scores       = scoring["scores"]
-    rankings     = scoring["rankings"]
-    peer_scores  = scoring["peer_scores"]
-    verdict      = score_to_verdict(scores["overall"])
+    # Require at least 3 peers for meaningful relative scoring
+    MIN_PEERS = 3
     sf           = target.get("short_float")
     sr           = target.get("short_ratio")
     short_signal = short_sentiment(sf, sr)
+
+    if len(competitors) >= MIN_PEERS:
+        scoring     = compute_scores(target, competitors)
+        scores      = scoring["scores"]
+        rankings    = scoring["rankings"]
+        peer_scores = scoring["peer_scores"]
+        verdict     = score_to_verdict(scores["overall"])
+    else:
+        scores      = None
+        rankings    = {}
+        peer_scores = {}
+        verdict     = "INSUFFICIENT DATA"
 
     # Step 5: Claude writes narrative only
     all_data = {"target": target, "competitors": competitors}
@@ -395,7 +512,7 @@ def analyze():
 
     try:
         response = client.messages.create(
-            model="claude-haiku-4-5",
+            model=CLAUDE_MODEL,
             max_tokens=3000,
             temperature=0,
             messages=[{
@@ -411,20 +528,36 @@ def analyze():
             }],
         )
 
-        full_text = next(
+        raw_text = next(
             (b.text for b in response.content if b.type == "text"), ""
         ).strip()
+        narrative = extract_narrative_json(raw_text)
 
-        if "```" in full_text:
-            match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", full_text)
-            if match:
-                full_text = match.group(1)
-
-        json_match = re.search(r"\{[\s\S]+\}", full_text)
-        if json_match:
-            full_text = json_match.group(0)
-
-        narrative = json.loads(full_text)
+        # Retry once if narrative is missing required keys
+        if not validate_narrative(narrative):
+            retry = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=3000,
+                temperature=0,
+                messages=[{
+                    "role": "user",
+                    "content": NARRATIVE_PROMPT.format(
+                        ticker=ticker,
+                        scores_json=json.dumps(scores, indent=2),
+                        short_float=sf if sf is not None else "N/A",
+                        short_ratio=sr if sr is not None else "N/A",
+                        short_signal=short_signal,
+                        data_json=json.dumps(all_data, indent=2),
+                    ),
+                }],
+            )
+            retry_text = next(
+                (b.text for b in retry.content if b.type == "text"), ""
+            ).strip()
+            try:
+                narrative = extract_narrative_json(retry_text)
+            except Exception:
+                pass  # keep original partial narrative, banner will flag missing sections
 
         # Build final result: Python data + Python scores + Claude narrative
         spy = get_spy_perf()
@@ -434,6 +567,7 @@ def analyze():
             "sector":        target["sector"],
             "industry":      target["industry"],
             "data_as_of":    "Latest (Finviz)",
+            "resolved_from": resolved_from,
             "earnings_date": earnings_date,
             "current_price": target.get("current_price"),
             "target_price":  target.get("target_price"),
@@ -483,9 +617,10 @@ def analyze():
                 }
                 for c in competitors
             ],
+            "peers_found": len(competitors),
             "scores":      scores,
             "peer_scores": peer_scores,
-            "rankings": {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)},
+            "rankings":    {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)} if rankings else {"sector_percentile": narrative.get("sector_percentile", 50)},
             "analyst_verdict":  verdict,
             "strengths":        narrative.get("strengths", []),
             "weaknesses":       narrative.get("weaknesses", []),
@@ -494,14 +629,19 @@ def analyze():
             "bear_case":        narrative.get("bear_case", []),
             "verdict_rationale": narrative.get("verdict_rationale", ""),
         }
+        result["cache_hit"] = False
+        _ticker_cache[ticker] = {"date": date.today(), "result": result}
         return jsonify(result)
 
     except json.JSONDecodeError as e:
-        return jsonify({"error": f"Failed to parse response: {str(e)}"}), 500
+        logger.error("Narrative JSON parse failed for %s: %s", ticker, e)
+        return jsonify({"error": "Analysis response could not be parsed. Please try again."}), 500
     except anthropic.APIError as e:
-        return jsonify({"error": f"Anthropic API error: {str(e)}"}), 502
+        logger.error("Anthropic API error for %s: %s", ticker, e)
+        return jsonify({"error": "AI analysis service is temporarily unavailable. Please try again."}), 502
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error("Unexpected error for %s: %s", ticker, e)
+        return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
 
 @app.route("/api/health", methods=["GET"])
