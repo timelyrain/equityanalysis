@@ -507,7 +507,51 @@ def analyze():
         verdict     = "INSUFFICIENT DATA"
 
     # Step 5: Claude writes narrative only
-    all_data = {"target": target, "competitors": competitors}
+    # short_float/ratio already passed as named params; pb_ratio/roe/current_ratio/
+    # current_price/dividend_yield/debt_eq add noise without improving narrative quality
+    narrative_data = {
+        "target": {
+            "ticker":             target.get("ticker"),
+            "company_name":       target.get("company_name"),
+            "sector":             target.get("sector"),
+            "industry":           target.get("industry"),
+            "market_cap_b":       target.get("market_cap_b"),
+            "pe_ratio":           target.get("pe_ratio"),
+            "forward_pe":         target.get("forward_pe"),
+            "ev_ebitda":          target.get("ev_ebitda"),
+            "ps_ratio":           target.get("ps_ratio"),
+            "gross_margin":       target.get("gross_margin"),
+            "operating_margin":   target.get("operating_margin"),
+            "net_margin":         target.get("net_margin"),
+            "roic":               target.get("roic"),
+            "revenue_growth_yoy": target.get("revenue_growth_yoy"),
+            "eps_growth_yoy":     target.get("eps_growth_yoy"),
+            "net_debt_ebitda":    target.get("net_debt_ebitda"),
+            "fcf_yield":          target.get("fcf_yield"),
+            "perf_year":          target.get("perf_year"),
+            "target_price":       target.get("target_price"),
+            "analyst_recom":      target.get("analyst_recom"),
+        },
+        "competitors": [
+            {
+                "ticker":             c.get("ticker"),
+                "company_name":       c.get("company_name"),
+                "market_cap_b":       c.get("market_cap_b"),
+                "perf_year":          c.get("perf_year"),
+                "pe_ratio":           c.get("pe_ratio"),
+                "ev_ebitda":          c.get("ev_ebitda"),
+                "ps_ratio":           c.get("ps_ratio"),
+                "gross_margin":       c.get("gross_margin"),
+                "operating_margin":   c.get("operating_margin"),
+                "net_margin":         c.get("net_margin"),
+                "roic":               c.get("roic"),
+                "revenue_growth_yoy": c.get("revenue_growth_yoy"),
+                "eps_growth_yoy":     c.get("eps_growth_yoy"),
+                "net_debt_ebitda":    c.get("net_debt_ebitda"),
+            }
+            for c in competitors
+        ],
+    }
     client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
 
     try:
@@ -523,7 +567,7 @@ def analyze():
                     short_float=sf if sf is not None else "N/A",
                     short_ratio=sr if sr is not None else "N/A",
                     short_signal=short_signal,
-                    data_json=json.dumps(all_data, indent=2),
+                    data_json=json.dumps(narrative_data, indent=2),
                 ),
             }],
         )
@@ -547,7 +591,7 @@ def analyze():
                         short_float=sf if sf is not None else "N/A",
                         short_ratio=sr if sr is not None else "N/A",
                         short_signal=short_signal,
-                        data_json=json.dumps(all_data, indent=2),
+                        data_json=json.dumps(narrative_data, indent=2),
                     ),
                 }],
             )
