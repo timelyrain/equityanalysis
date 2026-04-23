@@ -12,6 +12,8 @@ import yfinance as yf
 from finvizfinance.quote import finvizfinance as fvf
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 from timing_rules import compute_timing
 
 app = Flask(__name__)
