@@ -820,6 +820,7 @@ function renderDashboard(d) {
           <span class="meta-pill">${esc(d.sector)}</span>
           <span class="meta-pill">${esc(d.industry)}</span>
           ${f.market_cap_b ? `<span class="meta-pill">Mkt Cap $${(+f.market_cap_b).toFixed(1)}B</span>` : ""}
+          ${d.earnings_date ? `<span class="meta-pill" style="color:var(--teal)">&#9656; Earnings ${esc(d.earnings_date)}</span>` : ""}
         </div>
       </div>
       <div>

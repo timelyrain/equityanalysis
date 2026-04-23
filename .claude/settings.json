@@ -12,7 +12,12 @@
       "Bash(vercel --prod)",
       "Bash(curl -s -X POST https://equityanalysis.vercel.app/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')",
       "Bash(curl -s https://equityanalysis.vercel.app)",
-      "Bash(vercel ls *)"
+      "Bash(vercel ls *)",
+      "Bash(python3 -c \"from finvizfinance.quote import finvizfinance; import inspect; print\\([m for m in dir\\(finvizfinance\\('AAPL'\\)\\) if not m.startswith\\('_'\\)]\\)\")",
+      "Bash(pip show *)",
+      "Bash(pip3 show *)",
+      "Bash(pip3 install *)",
+      "Bash(/Users/hongkiatkoh/Developer/equityanalysis/.venv/bin/pip install *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"

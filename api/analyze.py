@@ -4,6 +4,7 @@ import re
 import time
 
 import anthropic
+import yfinance as yf
 from finvizfinance.quote import finvizfinance as fvf
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -100,6 +101,24 @@ def fetch_fundamentals(ticker):
         "short_float": parse_num(f.get("Short Float")),
         "short_ratio": parse_num(f.get("Short Ratio")),
     }
+
+
+def fetch_earnings_date(ticker):
+    """Return next earnings date as 'MMM D, YYYY' string, or None if unavailable."""
+    try:
+        cal = yf.Ticker(ticker).calendar
+        if cal is None:
+            return None
+        # calendar is a dict with 'Earnings Date' key containing a list of timestamps
+        if isinstance(cal, dict):
+            dates = cal.get("Earnings Date", [])
+            if dates:
+                dt = dates[0]
+                if hasattr(dt, "strftime"):
+                    return dt.strftime("%-d %b %Y")
+        return None
+    except Exception:
+        return None
 
 
 def short_sentiment(short_float, short_ratio):
@@ -338,6 +357,8 @@ def analyze():
     except Exception as e:
         return jsonify({"error": f"Finviz data error for {ticker}: {str(e)}"}), 502
 
+    earnings_date = fetch_earnings_date(ticker)
+
     # Step 2: Claude identifies best-in-class peers
     try:
         competitor_tickers = identify_peers(
@@ -413,6 +434,7 @@ def analyze():
             "sector":        target["sector"],
             "industry":      target["industry"],
             "data_as_of":    "Latest (Finviz)",
+            "earnings_date": earnings_date,
             "current_price": target.get("current_price"),
             "target_price":  target.get("target_price"),
             "perf_year":     target.get("perf_year"),
