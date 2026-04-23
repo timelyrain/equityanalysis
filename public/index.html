@@ -368,18 +368,16 @@
     }
     .rank-divider { width: 1px; height: 40px; background: var(--border); }
     .rank-cards { display:flex; gap:0; align-items:flex-start; flex-wrap:wrap; }
+    .rank-card-item { width:75px; }
     .rank-cards-wrap { position:relative; }
     .table-scroll-wrap { position:relative; }
     @media (max-width: 600px) {
       .ranking-banner { flex-direction:column; gap:14px; padding:14px 16px; }
       .rank-divider { width:100%; height:1px; }
       .rank-item { width:100%; }
-      .rank-cards { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%; padding-bottom:4px; padding-right:32px; }
-      .rank-cards-wrap::after {
-        content:''; position:absolute; top:0; right:0; bottom:4px; width:48px;
-        background:linear-gradient(to right, transparent, var(--bg-card));
-        pointer-events:none;
-      }
+      .rank-cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px 0; overflow-x:visible; width:100%; padding:4px 0; }
+      .rank-card-item { width:100%; }
+      .rank-card-sep { display:none; }
       .table-scroll-wrap::after {
         content:''; position:absolute; top:0; right:0; bottom:0; width:48px;
         background:linear-gradient(to right, transparent, var(--bg));
@@ -1076,11 +1074,11 @@ function renderDashboard(d) {
                 const retColor = c.ret == null ? "var(--text-3)" : c.ret >= 0 ? "var(--green)" : "var(--red)";
                 const retStr = c.ret != null ? `${c.ret >= 0 ? "+" : ""}${c.ret.toFixed(1)}%` : "—";
                 const scoreStr = c.score != null ? `${c.score}` : "—";
-                const divider = i < arr.length - 1 ? `<div style="width:1px;background:rgba(255,255,255,0.07);margin:2px 12px;align-self:stretch"></div>` : "";
+                const divider = i < arr.length - 1 ? `<div class="rank-card-sep" style="width:1px;background:rgba(255,255,255,0.07);margin:2px 12px;align-self:stretch"></div>` : "";
                 const tickerEl = c.isTarget
                   ? `<span style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--text-1);letter-spacing:0.06em;">${esc(c.ticker)} ★</span>`
                   : `<span onclick="document.getElementById('tickerInput').value='${esc(c.ticker)}';runAnalysis();" style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--teal);letter-spacing:0.06em;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,229,195,0.35)">${esc(c.ticker)}</span>`;
-                return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:75px;padding:6px 0">
+                return `<div class="rank-card-item" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0">
                   <span style="font-size:0.55rem;color:var(--text-3);letter-spacing:0.06em;text-transform:uppercase">${ordinal(i)}</span>
                   ${tickerEl}
                   <span style="font-family:var(--mono);font-size:0.75rem;white-space:nowrap"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
