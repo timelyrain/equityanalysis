@@ -489,32 +489,30 @@
       border-bottom: 1px solid rgba(255,255,255,0.03);
     }
     .fund-row:last-child { border-bottom: none; }
-    .fund-key { font-size: 0.68rem; color: var(--text-2); position: relative; cursor: default; }
+    .fund-key { font-size: 0.68rem; color: var(--text-2); cursor: default; }
     .fund-key[data-tip] { border-bottom: 1px dashed rgba(255,255,255,0.2); }
-    .fund-key[data-tip]::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
+    #fund-tooltip {
+      position: fixed;
+      z-index: 9999;
       background: #1e2530;
       color: var(--text-1);
       font-size: 0.62rem;
+      font-family: var(--mono);
       line-height: 1.5;
-      padding: 7px 10px;
+      padding: 8px 11px;
       border-radius: 6px;
       border: 1px solid var(--border);
-      width: 210px;
+      width: 220px;
       white-space: normal;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.15s;
-      z-index: 100;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
       text-align: left;
       font-weight: 400;
       letter-spacing: 0;
     }
-    .fund-key[data-tip]:hover::after { opacity: 1; }
+    #fund-tooltip.visible { opacity: 1; }
     .fund-val { font-size: 0.78rem; font-weight: 500; color: var(--text-1); }
     .fund-val.positive { color: var(--green); }
     .fund-val.negative { color: var(--red); }
@@ -1180,6 +1178,33 @@ function animateRings() {
     });
   });
 }
+</script>
+
+<div id="fund-tooltip"></div>
+<script>
+(function() {
+  const tip = document.getElementById("fund-tooltip");
+  document.addEventListener("mouseover", function(e) {
+    const el = e.target.closest("[data-tip]");
+    if (!el) return;
+    tip.textContent = el.getAttribute("data-tip");
+    tip.classList.add("visible");
+  });
+  document.addEventListener("mousemove", function(e) {
+    if (!tip.classList.contains("visible")) return;
+    const pad = 12, tw = 220, th = tip.offsetHeight;
+    let x = e.clientX + pad;
+    let y = e.clientY - th - pad;
+    if (x + tw > window.innerWidth) x = e.clientX - tw - pad;
+    if (y < 0) y = e.clientY + pad;
+    tip.style.left = x + "px";
+    tip.style.top  = y + "px";
+  });
+  document.addEventListener("mouseout", function(e) {
+    if (!e.target.closest("[data-tip]")) return;
+    tip.classList.remove("visible");
+  });
+})();
 </script>
 </body>
 </html>
