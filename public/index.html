@@ -223,17 +223,6 @@
     .verdict-HOLD        { background: rgba(255,211,42,0.12); border: 1px solid var(--yellow); color: var(--yellow); }
     .verdict-UNDERPERFORM{ background: rgba(245,166,35,0.12); border: 1px solid var(--amber);  color: var(--amber); }
     .verdict-AVOID       { background: rgba(255,71,87,0.12);  border: 1px solid var(--red);   color: var(--red); }
-    .timing-wrap { margin-top:12px; display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; }
-    .timing-lbl  { font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-3); padding-top:3px; white-space:nowrap; }
-    .timing-body { display:flex; flex-direction:column; gap:4px; }
-    .timing-badge { display:inline-block; padding:3px 10px; border-radius:4px; font-family:var(--mono); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; }
-    .timing-STRONG-ENTRY     { background:rgba(46,213,115,0.15); border:1px solid var(--green);  color:var(--green); }
-    .timing-GOOD-ENTRY       { background:rgba(0,229,195,0.12);  border:1px solid var(--teal);   color:var(--teal); }
-    .timing-NEUTRAL          { background:rgba(255,255,255,0.06);border:1px solid var(--border); color:var(--text-2); }
-    .timing-WAIT-FOR-PULLBACK{ background:rgba(255,211,42,0.12); border:1px solid var(--yellow); color:var(--yellow); }
-    .timing-CAUTION          { background:rgba(255,71,87,0.12);  border:1px solid var(--red);    color:var(--red); }
-    .timing-reasons { display:flex; flex-direction:column; gap:2px; margin-top:2px; }
-    .timing-reason  { font-size:0.65rem; color:var(--text-3); }
     .analyst-view {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -944,13 +933,19 @@ function renderDashboard(d) {
     <!-- TIMING -->
     ${d.timing ? (() => {
       const t = d.timing;
-      const cls = "timing-" + t.verdict.replace(/ /g, "-");
-      const reasons = (t.reasons || []).map(r => `<div class="timing-reason">· ${esc(r)}</div>`).join("");
-      return `<div class="timing-wrap">
-        <div class="timing-lbl">Timing</div>
-        <div class="timing-body">
-          <div class="timing-badge ${cls}">${esc(t.verdict)}</div>
-          ${reasons ? `<div class="timing-reasons">${reasons}</div>` : ""}
+      const sigMap = {"STRONG ENTRY":"LOW","GOOD ENTRY":"NORMAL","NEUTRAL":"UNKNOWN","WAIT FOR PULLBACK":"ELEVATED","CAUTION":"EXTREME"};
+      const sigCls = "sig-" + (sigMap[t.verdict] || "UNKNOWN");
+      const reasons = (t.reasons || []).join(" · ") || "—";
+      return `
+      <div class="section-title" style="margin-bottom:10px;">Timing</div>
+      <div class="short-bar">
+        <div class="short-item">
+          <span class="short-lbl">Entry Signal</span>
+          <span class="short-signal ${sigCls}">${esc(t.verdict)}</span>
+        </div>
+        <div class="short-item" style="flex:1;min-width:0">
+          <span class="short-lbl">Key Signals</span>
+          <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
         </div>
       </div>`;
     })() : ""}
