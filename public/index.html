@@ -701,6 +701,7 @@
 
 
 <script>
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const API_URL = "/api/analyze";
 
 function esc(str) {
@@ -1176,7 +1177,7 @@ function renderDashboard(d) {
       <div class="section-title" style="margin-bottom:10px;margin-top:24px;">Timing</div>
       <div class="short-bar">
         <div class="short-item">
-          <span class="short-lbl">Entry Signal</span>
+          <span class="short-lbl">Technicals</span>
           <span class="short-signal-wrap">
             <span class="short-signal ${sigCls}">${esc(t.verdict)}</span>
             <div class="short-tooltip">
@@ -1195,7 +1196,8 @@ function renderDashboard(d) {
           <span class="short-lbl">Key Signals</span>
           <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
         </div>
-      </div>`;
+      </div>
+      ${t.commentary ? `<p style="font-size:0.78rem;color:var(--text-2);margin:10px 0 0;line-height:1.5;">${esc(t.commentary)}</p>` : ""}`;
     })() : ""}
 
     <div style="text-align:center;padding:24px 0 8px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:24px;" id="deploy-footer"></div>

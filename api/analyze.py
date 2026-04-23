@@ -12,20 +12,22 @@ import yfinance as yf
 from finvizfinance.quote import finvizfinance as fvf
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import sys as _sys, os as _os
-_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from timing_rules import compute_timing
 
 app = Flask(__name__)
 CORS(app)
 
 CLAUDE_MODEL      = "claude-sonnet-4-6"  # narrative + peer identification
-CLAUDE_MODEL_FAST = "claude-haiku-4-5"   # ticker resolution only
+CLAUDE_MODEL_FAST = "claude-haiku-4-5-20251001"   # ticker resolution only
 
 _spy_cache = {"perf_year": None, "ts": 0}
 _SPY_TTL = 86400  # 24 hours
 
 _ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
+
+MIN_PEERS = 3  # minimum peers required for meaningful relative scoring
 
 
 def get_spy_perf():
@@ -114,7 +116,6 @@ def fetch_fundamentals(ticker):
         "short_float":   parse_num(f.get("Short Float")),
         "short_ratio":   parse_num(f.get("Short Ratio")),
         "rsi":           parse_num(f.get("RSI (14)")),
-        "vs_sma20":      parse_num(f.get("SMA20")),
         "vs_sma50":      parse_num(f.get("SMA50")),
         "vs_sma200":     parse_num(f.get("SMA200")),
         "pct_from_52h":  parse_num(f.get("52W High")),
@@ -360,6 +361,7 @@ NARRATIVE_PROMPT = """You are a senior institutional equity analyst. Fundamental
 TARGET: {ticker}
 COMPUTED SCORES: {scores_json}
 SHORT INTEREST: short_float={short_float}%, days_to_cover={short_ratio}, signal={short_signal}
+TECHNICAL TIMING: {timing_json}
 FULL DATA: {data_json}
 
 Write an institutional-grade narrative analysis. Factor in the short interest signal when assessing risk and opportunity. Return ONLY this JSON:
@@ -371,6 +373,7 @@ Write an institutional-grade narrative analysis. Factor in the short interest si
   "bull_case": ["string", "string", "string"],
   "bear_case": ["string", "string", "string"],
   "verdict_rationale": "string",
+  "timing_commentary": "string",
   "sector_percentile": integer
 }}
 
@@ -378,6 +381,7 @@ Rules:
 - strengths/weaknesses/bull_case/bear_case: 3 specific, data-backed points each
 - key_risks: 3 concrete risks with potential impact
 - verdict_rationale: 2-3 sentences referencing the computed scores and key metrics
+- timing_commentary: exactly 1 sentence connecting the technical timing verdict to the fundamental story (e.g. whether the timing supports acting now or waiting for a better entry)
 - sector_percentile: your estimate (0-100) of where {ticker} ranks in its broader sector universe"""
 
 
@@ -499,7 +503,6 @@ def analyze():
 
     # Step 4: deterministic Python scoring + short sentiment
     # Require at least 3 peers for meaningful relative scoring
-    MIN_PEERS = 3
     sf           = target.get("short_float")
     sr           = target.get("short_ratio")
     short_signal = short_sentiment(sf, sr)
@@ -577,6 +580,7 @@ def analyze():
                     short_float=sf if sf is not None else "N/A",
                     short_ratio=sr if sr is not None else "N/A",
                     short_signal=short_signal,
+                    timing_json=json.dumps(timing, indent=2),
                     data_json=json.dumps(narrative_data, indent=2),
                 ),
             }],
@@ -601,6 +605,7 @@ def analyze():
                         short_float=sf if sf is not None else "N/A",
                         short_ratio=sr if sr is not None else "N/A",
                         short_signal=short_signal,
+                        timing_json=json.dumps(timing, indent=2),
                         data_json=json.dumps(narrative_data, indent=2),
                     ),
                 }],
@@ -620,7 +625,6 @@ def analyze():
             "company_name":  target["company_name"],
             "sector":        target["sector"],
             "industry":      target["industry"],
-            "data_as_of":    "Latest (Finviz)",
             "resolved_from": resolved_from,
             "earnings_date": earnings_date,
             "current_price": target.get("current_price"),
@@ -648,7 +652,6 @@ def analyze():
                 "net_debt_ebitda":    target.get("net_debt_ebitda"),
                 "current_ratio":      target.get("current_ratio"),
                 "fcf_yield":          target.get("fcf_yield"),
-                "interest_coverage":  None,
                 "dividend_yield":     target.get("dividend_yield"),
             },
             "competitors": [
@@ -676,7 +679,7 @@ def analyze():
             "peer_scores": peer_scores,
             "rankings":    {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)} if rankings else {"sector_percentile": narrative.get("sector_percentile", 50)},
             "analyst_verdict":  verdict,
-            "timing":           timing,
+            "timing":           {**timing, "commentary": narrative.get("timing_commentary", "")},
             "strengths":        narrative.get("strengths", []),
             "weaknesses":       narrative.get("weaknesses", []),
             "key_risks":        narrative.get("key_risks", []),

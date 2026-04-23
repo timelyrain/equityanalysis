@@ -40,7 +40,7 @@ UPSIDE_NEGATIVE      =  0.0  # 0–5% → largely priced in (−1); <0 → above
 # ── Monthly momentum thresholds ────────────────────────────────────────────────
 PERF_MONTH_CHASING   =  8.0  # up >8% this month → avoid chasing (−1)
 PERF_MONTH_DIP       = -5.0  # down 5–15% → dip opportunity (+1)
-PERF_MONTH_STEEP     = -15.0 # down >15% → oversold dip (+1, stacks with dip rule via separate group)
+PERF_MONTH_STEEP     = -15.0 # down >15% → fires instead of mild dip rule for steeper declines (+1)
 
 # ── Verdict score thresholds ───────────────────────────────────────────────────
 SCORE_STRONG_ENTRY   =  4    # score ≥ 4
@@ -110,7 +110,7 @@ RULES = [
     {"group": "momentum", "signal": "perf_month", "op": "lt",    "value": PERF_MONTH_STEEP,
      "points": +1, "label": "Steep monthly decline — oversold dip opportunity"},
     {"group": "momentum", "signal": "perf_month", "op": "range", "low": PERF_MONTH_DIP, "high": PERF_MONTH_CHASING,
-     "points":  0, "label": None},
+     "points":  0, "label": None},  # neutral band — blocks steep-dip rule from matching mild declines
     {"group": "momentum", "signal": "perf_month", "op": "range", "low": PERF_MONTH_STEEP, "high": PERF_MONTH_DIP,
      "points": +1, "label": "Monthly pullback — potential dip entry"},
 ]
