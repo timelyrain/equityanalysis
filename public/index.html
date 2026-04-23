@@ -1078,6 +1078,7 @@ function renderDashboard(d) {
             <tr>
               <th>Ticker</th>
               <th>Company</th>
+              <th>Score</th>
               <th>Mkt Cap</th>
               <th>P/E</th>
               <th>EV/EBITDA</th>
@@ -1089,7 +1090,6 @@ function renderDashboard(d) {
               <th>EPS Grw</th>
               <th>ND/EBITDA</th>
               <th>FCF Yld</th>
-              <th>Score</th>
             </tr>
           </thead>
           <tbody>
@@ -1179,6 +1179,7 @@ function renderTargetRow(d, overall) {
     <tr class="target-row">
       <td class="ticker-cell">${esc(d.ticker)}<span class="star">★</span></td>
       <td class="name-cell">${esc(d.company_name)}</td>
+      <td class="score-cell" style="color:${scoreColor(overall ?? 0)}">${overall ?? "—"}</td>
       <td>${f.market_cap_b ? "$" + (+f.market_cap_b).toFixed(0) + "B" : "—"}</td>
       <td>${f.pe_ratio != null ? (+f.pe_ratio).toFixed(1) : "—"}</td>
       <td>${f.ev_ebitda != null ? (+f.ev_ebitda).toFixed(1) : "—"}</td>
@@ -1190,7 +1191,6 @@ function renderTargetRow(d, overall) {
       <td>${f.eps_growth_yoy != null ? (f.eps_growth_yoy > 0 ? "+" : "") + (+f.eps_growth_yoy).toFixed(1) + "%" : "—"}</td>
       <td>${f.net_debt_ebitda != null ? (+f.net_debt_ebitda).toFixed(1) + "x" : "—"}</td>
       <td>${f.fcf_yield != null ? (+f.fcf_yield).toFixed(1) + "%" : "—"}</td>
-      <td class="score-cell" style="color:${scoreColor(overall ?? 0)}">${overall ?? "—"}</td>
     </tr>`;
 }
 
@@ -1218,6 +1218,7 @@ function renderPeerRow(p, tf, peerScores) {
     <tr>
       <td class="ticker-cell"><span onclick="document.getElementById('tickerInput').value='${esc(p.ticker)}';runAnalysis();" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,229,195,0.4)">${esc(p.ticker) || "—"}</span></td>
       <td class="name-cell">${esc(p.company_name)}</td>
+      <td class="score-cell" style="color:${scoreColor(peerOverall ?? 0)}">${peerOverall != null ? Math.round(peerOverall) : "—"}</td>
       <td>${p.market_cap_b ? "$" + (+p.market_cap_b).toFixed(0) + "B" : "—"}</td>
       ${cell(p.pe_ratio,          tf.pe_ratio,          1, "", true)}
       ${cell(p.ev_ebitda,         tf.ev_ebitda,         1, "", true)}
@@ -1229,7 +1230,6 @@ function renderPeerRow(p, tf, peerScores) {
       ${growthCell(p.eps_growth_yoy,     tf.eps_growth_yoy)}
       ${cell(p.net_debt_ebitda,   tf.net_debt_ebitda,   1, "x", true)}
       ${cell(p.fcf_yield,         tf.fcf_yield,         1, "%")}
-      <td class="score-cell" style="color:${scoreColor(peerOverall ?? 0)}">${peerOverall != null ? Math.round(peerOverall) : "—"}</td>
     </tr>`;
 }
 
