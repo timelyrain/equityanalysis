@@ -103,6 +103,7 @@
     }
     .ticker-input {
       flex: 1;
+      min-width: 0;
       background: var(--bg-card);
       border: 1px solid var(--border-hi);
       border-radius: 6px;
@@ -138,6 +139,12 @@
     .analyze-btn:hover { background: #00f0cc; box-shadow: 0 0 24px var(--teal-glow); }
     .analyze-btn:active { transform: scale(0.98); }
     .analyze-btn:disabled { background: var(--text-3); cursor: not-allowed; box-shadow: none; }
+
+    @media (max-width: 480px) {
+      .search-section { padding: 0 16px; }
+      .search-row { gap: 8px; }
+      .analyze-btn { padding: 14px 18px; }
+    }
 
     /* ─── STATUS / ERROR ──────────────────────────────── */
     .status-bar {
