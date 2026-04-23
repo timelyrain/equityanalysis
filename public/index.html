@@ -645,6 +645,7 @@
     />
     <button id="analyzeBtn" class="analyze-btn" onclick="runAnalysis()">Analyze</button>
   </div>
+  <div style="margin-top:24px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;" id="landing-time"></div>
 </section>
 
 <div class="status-bar" id="statusBar">
@@ -1181,6 +1182,10 @@ function animateRings() {
 </script>
 
 <div id="fund-tooltip"></div>
+<script>
+document.getElementById("landing-time").textContent =
+  new Date().toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+</script>
 <script>
 (function() {
   const tip = document.getElementById("fund-tooltip");
