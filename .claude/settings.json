@@ -11,7 +11,8 @@
       "Bash(python3 -m json.tool)",
       "Bash(vercel --prod)",
       "Bash(curl -s -X POST https://equityanalysis.vercel.app/api/analyze -H 'Content-Type: application/json' -d '{\"ticker\": \"AAPL\"}')",
-      "Bash(curl -s https://equityanalysis.vercel.app)"
+      "Bash(curl -s https://equityanalysis.vercel.app)",
+      "Bash(vercel ls *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
