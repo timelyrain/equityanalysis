@@ -489,7 +489,32 @@
       border-bottom: 1px solid rgba(255,255,255,0.03);
     }
     .fund-row:last-child { border-bottom: none; }
-    .fund-key { font-size: 0.68rem; color: var(--text-2); }
+    .fund-key { font-size: 0.68rem; color: var(--text-2); position: relative; cursor: default; }
+    .fund-key[data-tip] { border-bottom: 1px dashed rgba(255,255,255,0.2); }
+    .fund-key[data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e2530;
+      color: var(--text-1);
+      font-size: 0.62rem;
+      line-height: 1.5;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      width: 210px;
+      white-space: normal;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+      text-align: left;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+    .fund-key[data-tip]:hover::after { opacity: 1; }
     .fund-val { font-size: 0.78rem; font-weight: 500; color: var(--text-1); }
     .fund-val.positive { color: var(--green); }
     .fund-val.negative { color: var(--red); }
@@ -955,32 +980,32 @@ function renderDashboard(d) {
       <div class="fund-grid">
         <div class="fund-group">
           <div class="fund-group-title">Valuation</div>
-          <div class="fund-row"><span class="fund-key">P/E Ratio</span>${fmtNum(f.pe_ratio)}</div>
-          <div class="fund-row"><span class="fund-key">Forward P/E</span>${fmtNum(f.forward_pe)}</div>
-          <div class="fund-row"><span class="fund-key">EV/EBITDA</span>${fmtNum(f.ev_ebitda)}</div>
-          <div class="fund-row"><span class="fund-key">P/S Ratio</span>${fmtNum(f.ps_ratio)}</div>
-          <div class="fund-row"><span class="fund-key">P/B Ratio</span>${fmtNum(f.pb_ratio)}</div>
-          <div class="fund-row"><span class="fund-key">Dividend Yield</span>${fmtNum(f.dividend_yield, 2, "%")}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Price-to-Earnings: share price divided by earnings per share. Lower means cheaper relative to current profits.">P/E Ratio</span>${fmtNum(f.pe_ratio)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Forward Price-to-Earnings: P/E based on next 12 months earnings estimates. Reflects what the market expects future profitability to be.">Forward P/E</span>${fmtNum(f.forward_pe)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Enterprise Value divided by EBITDA. A valuation multiple that accounts for debt. Lower means cheaper; more comparable across companies with different capital structures.">EV/EBITDA</span>${fmtNum(f.ev_ebitda)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Price-to-Sales: market cap divided by annual revenue. Useful for companies without positive earnings. Lower means cheaper relative to revenue.">P/S Ratio</span>${fmtNum(f.ps_ratio)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Price-to-Book: market cap divided by net asset value. Lower means the stock trades closer to the value of its assets on the balance sheet.">P/B Ratio</span>${fmtNum(f.pb_ratio)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Annual dividends paid as a percentage of share price. Higher means more income returned to shareholders relative to the stock price.">Dividend Yield</span>${fmtNum(f.dividend_yield, 2, "%")}</div>
         </div>
         <div class="fund-group">
           <div class="fund-group-title">Profitability</div>
-          <div class="fund-row"><span class="fund-key">Gross Margin</span>${fmtPct(f.gross_margin)}</div>
-          <div class="fund-row"><span class="fund-key">Operating Margin</span>${fmtPct(f.operating_margin)}</div>
-          <div class="fund-row"><span class="fund-key">Net Margin</span>${fmtPct(f.net_margin)}</div>
-          <div class="fund-row"><span class="fund-key">ROIC</span>${fmtPct(f.roic)}</div>
-          <div class="fund-row"><span class="fund-key">ROE</span>${fmtPct(f.roe)}</div>
-          <div class="fund-row"><span class="fund-key">FCF Yield</span>${fmtNum(f.fcf_yield, 2, "%")}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Gross Margin: revenue minus cost of goods sold, as a % of revenue. Measures production efficiency. Higher means more retained per dollar of sales before operating costs.">Gross Margin</span>${fmtPct(f.gross_margin)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Operating Margin: profit after all operating expenses as a % of revenue. Measures core business profitability before interest and taxes.">Operating Margin</span>${fmtPct(f.operating_margin)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Net Margin: bottom-line profit as a % of revenue after all expenses, interest, and taxes. Shows how much of each dollar of revenue becomes actual profit.">Net Margin</span>${fmtPct(f.net_margin)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Return on Invested Capital: how efficiently a company generates profit from all capital invested (debt + equity). Higher means better capital allocation. Above 15% is generally strong.">ROIC</span>${fmtPct(f.roic)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Return on Equity: net income as a percentage of shareholders' equity. Measures how effectively management generates profit from equity capital. Higher is better.">ROE</span>${fmtPct(f.roe)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Free Cash Flow Yield: free cash flow divided by market cap, expressed as a %. Higher means the company generates more real cash relative to its price — a sign of quality earnings.">FCF Yield</span>${fmtNum(f.fcf_yield, 2, "%")}</div>
         </div>
         <div class="fund-group">
           <div class="fund-group-title">Growth</div>
-          <div class="fund-row"><span class="fund-key">Revenue Growth YoY</span>${fmtGrowth(f.revenue_growth_yoy)}</div>
-          <div class="fund-row"><span class="fund-key">EPS Growth YoY</span>${fmtGrowth(f.eps_growth_yoy)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Revenue Growth Year-over-Year: percentage change in total revenue compared to the same period last year. Measures top-line business expansion.">Revenue Growth YoY</span>${fmtGrowth(f.revenue_growth_yoy)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Earnings Per Share Growth Year-over-Year: percentage change in EPS versus the prior year. Measures how fast bottom-line profitability is growing per share.">EPS Growth YoY</span>${fmtGrowth(f.eps_growth_yoy)}</div>
         </div>
         <div class="fund-group">
           <div class="fund-group-title">Financial Health</div>
-          <div class="fund-row"><span class="fund-key">Net Debt/EBITDA</span>${fmtNum(f.net_debt_ebitda)}</div>
-          <div class="fund-row"><span class="fund-key">Current Ratio</span>${fmtNum(f.current_ratio)}</div>
-          <div class="fund-row"><span class="fund-key">Interest Coverage</span>${fmtNum(f.interest_coverage)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Net Debt divided by EBITDA: measures how many years of operating earnings it would take to pay off net debt. Lower (or negative) means a healthier, less leveraged balance sheet.">Net Debt/EBITDA</span>${fmtNum(f.net_debt_ebitda)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Current Ratio: current assets divided by current liabilities. Above 1 means the company can cover its short-term obligations. Higher generally signals better short-term financial health.">Current Ratio</span>${fmtNum(f.current_ratio)}</div>
+          <div class="fund-row"><span class="fund-key" data-tip="Interest Coverage: EBIT divided by interest expense. Measures how comfortably a company can service its debt. Higher is safer; below 1.5x signals potential distress.">Interest Coverage</span>${fmtNum(f.interest_coverage)}</div>
         </div>
       </div>
     </div>
