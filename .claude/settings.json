@@ -18,7 +18,11 @@
       "Bash(pip3 show *)",
       "Bash(pip3 install *)",
       "Bash(/Users/hongkiatkoh/Developer/equityanalysis/.venv/bin/pip install *)",
-      "Bash(vercel --version)"
+      "Bash(vercel --version)",
+      "Bash(vercel inspect *)",
+      "Bash(vercel git *)",
+      "Bash(vercel project *)",
+      "Bash(vercel list *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
