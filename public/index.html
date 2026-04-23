@@ -890,9 +890,10 @@ function renderDashboard(d) {
 
     <!-- SHORT INTEREST -->
     ${d.short_signal ? `
+    <div class="section-title" style="margin-bottom:10px;">Market Sentiment</div>
     <div class="short-bar">
       <div class="short-item">
-        <span class="short-lbl">Market Sentiment</span>
+        <span class="short-lbl">Short Interest</span>
         <span class="short-signal-wrap">
           <span class="short-signal ${shortSignalClass(d.short_signal)}">${esc(d.short_signal)}</span>
           <div class="short-tooltip">
