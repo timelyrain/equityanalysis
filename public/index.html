@@ -930,38 +930,6 @@ function renderDashboard(d) {
       </div>
     </div>
 
-    <!-- TIMING -->
-    ${d.timing ? (() => {
-      const t = d.timing;
-      const sigMap = {"STRONG ENTRY":"LOW","GOOD ENTRY":"NORMAL","NEUTRAL":"UNKNOWN","WAIT FOR PULLBACK":"ELEVATED","CAUTION":"EXTREME"};
-      const sigCls = "sig-" + (sigMap[t.verdict] || "UNKNOWN");
-      const reasons = (t.reasons || []).join(" · ") || "—";
-      return `
-      <div class="section-title" style="margin-bottom:10px;">Timing</div>
-      <div class="short-bar">
-        <div class="short-item">
-          <span class="short-lbl">Entry Signal</span>
-          <span class="short-signal-wrap">
-            <span class="short-signal ${sigCls}">${esc(t.verdict)}</span>
-            <div class="short-tooltip">
-              <div class="tooltip-title">How to read the Entry Signal</div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-LOW">STRONG ENTRY</span><span class="tooltip-desc">Multiple bullish technicals aligned — RSI recovering, above key MAs, meaningful analyst upside</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">GOOD ENTRY</span><span class="tooltip-desc">Positive technical setup with no major red flags — reasonable timing for a new position</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">NEUTRAL</span><span class="tooltip-desc">Mixed signals — technicals neither confirm nor deny. Consider waiting for clearer setup</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">WAIT FOR PULLBACK</span><span class="tooltip-desc">Stock extended or overbought — better entry likely on a dip. Fundamentals may still be strong</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-EXTREME">CAUTION</span><span class="tooltip-desc">Multiple bearish signals — below key MAs, weak momentum, or priced above analyst target</span></div>
-              <hr class="tooltip-divider"/>
-              <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.35)">Based on RSI, 50/200-day MAs, golden cross, 52-week high proximity, analyst target upside, and monthly momentum. Day-level signal only — not a buy/sell recommendation.</span></div>
-            </div>
-          </span>
-        </div>
-        <div class="short-item" style="flex:1;min-width:0">
-          <span class="short-lbl">Key Signals</span>
-          <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
-        </div>
-      </div>`;
-    })() : ""}
-
     <!-- ANALYST VIEW -->
     ${d.verdict_rationale ? `<div class="analyst-view">${esc(d.verdict_rationale)}</div>` : ""}
 
@@ -1197,6 +1165,38 @@ function renderDashboard(d) {
           </div>`).join("")}
       </div>
     </div>
+
+    <!-- TIMING -->
+    ${d.timing ? (() => {
+      const t = d.timing;
+      const sigMap = {"STRONG ENTRY":"LOW","GOOD ENTRY":"NORMAL","NEUTRAL":"UNKNOWN","WAIT FOR PULLBACK":"ELEVATED","CAUTION":"EXTREME"};
+      const sigCls = "sig-" + (sigMap[t.verdict] || "UNKNOWN");
+      const reasons = (t.reasons || []).join(" · ") || "—";
+      return `
+      <div class="section-title" style="margin-bottom:10px;margin-top:24px;">Timing</div>
+      <div class="short-bar">
+        <div class="short-item">
+          <span class="short-lbl">Entry Signal</span>
+          <span class="short-signal-wrap">
+            <span class="short-signal ${sigCls}">${esc(t.verdict)}</span>
+            <div class="short-tooltip">
+              <div class="tooltip-title">How to read the Entry Signal</div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-LOW">STRONG ENTRY</span><span class="tooltip-desc">Multiple bullish technicals aligned — RSI recovering, above key MAs, meaningful analyst upside</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">GOOD ENTRY</span><span class="tooltip-desc">Positive technical setup with no major red flags — reasonable timing for a new position</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">NEUTRAL</span><span class="tooltip-desc">Mixed signals — technicals neither confirm nor deny. Consider waiting for clearer setup</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">WAIT FOR PULLBACK</span><span class="tooltip-desc">Stock extended or overbought — better entry likely on a dip. Fundamentals may still be strong</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-EXTREME">CAUTION</span><span class="tooltip-desc">Multiple bearish signals — below key MAs, weak momentum, or priced above analyst target</span></div>
+              <hr class="tooltip-divider"/>
+              <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.35)">Based on RSI, 50/200-day MAs, golden cross, 52-week high proximity, analyst target upside, and monthly momentum. Day-level signal only — not a buy/sell recommendation.</span></div>
+            </div>
+          </span>
+        </div>
+        <div class="short-item" style="flex:1;min-width:0">
+          <span class="short-lbl">Key Signals</span>
+          <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
+        </div>
+      </div>`;
+    })() : ""}
 
     <div style="text-align:center;padding:24px 0 8px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:24px;" id="deploy-footer"></div>
   `;
