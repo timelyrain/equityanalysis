@@ -1103,7 +1103,7 @@ function renderDashboard(d) {
     </div>
 
     <div style="text-align:center;padding:24px 0 8px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:24px;">
-      ${new Date().toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}
+      ${buildTime ? "Last deployment: " + buildTime : ""}
     </div>
   `;
 
@@ -1203,8 +1203,14 @@ function animateRings() {
 
 <div id="fund-tooltip"></div>
 <script>
-document.getElementById("landing-time").textContent =
-  new Date().toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+let buildTime = "";
+fetch('/build.json')
+  .then(r => r.json())
+  .then(d => {
+    buildTime = d.built;
+    document.getElementById("landing-time").textContent = "Last deployment: " + buildTime;
+  })
+  .catch(() => {});
 </script>
 <script>
 (function() {

@@ -1,4 +1,5 @@
 {
+  "buildCommand": "python3 -c \"import json,datetime; open('public/build.json','w').write(json.dumps({'built': datetime.datetime.now(datetime.timezone.utc).strftime('%d %b %Y, %H:%M UTC')}))\"",
   "functions": {
     "api/analyze.py": {
       "maxDuration": 120
