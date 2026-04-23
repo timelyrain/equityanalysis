@@ -22,7 +22,17 @@
       "Bash(vercel inspect *)",
       "Bash(vercel git *)",
       "Bash(vercel project *)",
-      "Bash(vercel list *)"
+      "Bash(vercel list *)",
+      "Read(//Users/hongkiatkoh/.config/vercel/**)",
+      "Read(//Users/hongkiatkoh/.local/share/com.vercel.cli/**)",
+      "Read(//Users/hongkiatkoh/.vercel/**)",
+      "Read(//Users/hongkiatkoh/**)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/hongkiatkoh/Library/Application Support/com.vercel.cli/auth.json'\\)\\); print\\(list\\(d['token'].values\\(\\)\\)[0] if isinstance\\(d.get\\('token'\\), dict\\) else d.get\\('token',''\\)\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/hongkiatkoh/Developer/equityanalysis/.vercel/project.json'\\)\\); print\\(d.get\\('orgId',''\\)\\)\")",
+      "Bash(curl -s 'https://api.vercel.com/v9/projects/equityanalysis?slug=__TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if any\\(x in k.lower\\(\\) for x in ['ignore','git','link','command','build']\\)}, indent=2\\)\\)\")",
+      "Bash(curl -s -X PATCH 'https://api.vercel.com/v9/projects/equityanalysis?slug=__TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"gitProviderOptions\":{\"requireVerifiedCommits\":false}}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('gitProviderOptions'\\)\\)\")"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
