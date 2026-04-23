@@ -596,16 +596,7 @@
     .sw-dot.str { background: var(--green); }
     .sw-dot.wk  { background: var(--red); }
 
-    /* ─── FOOTER ──────────────────────────────────────── */
-    .footer {
-      text-align: center;
-      padding: 24px;
-      font-size: 0.62rem;
-      color: var(--text-3);
-      letter-spacing: 0.08em;
-      border-top: 1px solid var(--border);
-    }
-  </style>
+</style>
 </head>
 <body>
 
@@ -644,9 +635,6 @@
   <!-- rendered dynamically -->
 </div>
 
-<div class="footer">
-  Data sourced via Finviz
-</div>
 
 <script>
 const API_URL = "/api/analyze";
@@ -675,7 +663,7 @@ async function runAnalysis() {
   statusBar.classList.add("visible");
   statusMsg.className = "status-msg";
   spinner.style.display = "block";
-  statusText.textContent = `Fetching Finviz fundamentals for ${ticker} and sector peers…`;
+  statusText.textContent = `Analysing ${ticker}…`;
 
   try {
     const res = await fetch(API_URL, {
