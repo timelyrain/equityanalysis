@@ -12,6 +12,7 @@ import yfinance as yf
 from finvizfinance.quote import finvizfinance as fvf
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from timing_rules import compute_timing
 
 app = Flask(__name__)
 CORS(app)
@@ -105,10 +106,16 @@ def fetch_fundamentals(ticker):
         "dividend_yield": dividend_yield,
         "analyst_recom": f.get("Recom"),
         "current_price": parse_num(f.get("Price")),
-        "target_price": parse_num(f.get("Target Price")),
-        "perf_year": parse_num(f.get("Perf Year")),
-        "short_float": parse_num(f.get("Short Float")),
-        "short_ratio": parse_num(f.get("Short Ratio")),
+        "target_price":  parse_num(f.get("Target Price")),
+        "perf_year":     parse_num(f.get("Perf Year")),
+        "perf_month":    parse_num(f.get("Perf Month")),
+        "short_float":   parse_num(f.get("Short Float")),
+        "short_ratio":   parse_num(f.get("Short Ratio")),
+        "rsi":           parse_num(f.get("RSI (14)")),
+        "vs_sma20":      parse_num(f.get("SMA20")),
+        "vs_sma50":      parse_num(f.get("SMA50")),
+        "vs_sma200":     parse_num(f.get("SMA200")),
+        "pct_from_52h":  parse_num(f.get("52W High")),
     }
 
 
@@ -454,6 +461,7 @@ def analyze():
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
     earnings_date = fetch_earnings_date(ticker)
+    timing        = compute_timing(target)
 
     # Step 2: Claude identifies best-in-class peers (one retry on failure)
     def _identify_peers_with_retry():
@@ -666,6 +674,7 @@ def analyze():
             "peer_scores": peer_scores,
             "rankings":    {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)} if rankings else {"sector_percentile": narrative.get("sector_percentile", 50)},
             "analyst_verdict":  verdict,
+            "timing":           timing,
             "strengths":        narrative.get("strengths", []),
             "weaknesses":       narrative.get("weaknesses", []),
             "key_risks":        narrative.get("key_risks", []),
