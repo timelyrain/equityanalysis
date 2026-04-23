@@ -344,7 +344,7 @@ def analyze():
 
     if not ticker:
         return jsonify({"error": "Ticker symbol is required"}), 400
-    if not ticker.isalpha() or len(ticker) > 6:
+    if not re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', ticker):
         return jsonify({"error": "Invalid ticker format"}), 400
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
