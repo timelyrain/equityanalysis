@@ -522,7 +522,7 @@
 
     /* ─── PEER COMPARISON TABLE ───────────────────────── */
     .peers-section { margin-bottom: 36px; }
-    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    .table-wrap { overflow-x: hidden; border-radius: 8px; border: 1px solid var(--border); }
     table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
     thead tr { background: rgba(0,229,195,0.05); border-bottom: 1px solid var(--border); }
     th {
@@ -547,7 +547,7 @@
     tr.target-row { background: rgba(0,229,195,0.04); }
     tr.target-row td { color: var(--text-1); }
     .ticker-cell { font-weight: 600; color: var(--teal); }
-    .name-cell { color: var(--text-2); font-size: 0.68rem; }
+    .name-cell { color: var(--text-2); font-size: 0.68rem; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     tr.target-row .name-cell { color: var(--text-1); }
     .score-cell {
       font-family: var(--sans);
@@ -1065,29 +1065,33 @@ function renderDashboard(d) {
           </span>
         </div>
         <div class="rank-divider"></div>
-        <div class="rank-item">
-          <div class="rank-val" style="font-size:1.1rem">
-            ${d.perf_year != null ? `<span style="color:${d.perf_year >= 0 ? "var(--green)" : "var(--red)"}">${d.perf_year >= 0 ? "+" : ""}${d.perf_year.toFixed(1)}%</span>` : "—"}
-          </div>
-          <div class="rank-lbl">12M Return</div>
-        </div>
-        <div class="rank-divider"></div>
         <div class="rank-item" style="flex:1">
           <div style="display:flex;gap:0;flex-wrap:wrap;align-items:flex-start">
-            ${(d.competitors || []).map((c, i, arr) => {
-              const ps = (d.peer_scores || {})[c.ticker];
-              const score = ps ? Math.round(ps.overall) : null;
-              const ret = c.perf_year != null ? c.perf_year : null;
-              const retColor = ret == null ? "var(--text-3)" : ret >= 0 ? "var(--green)" : "var(--red)";
-              const retStr = ret != null ? `${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%` : "—";
-              const scoreStr = score != null ? `${score}` : "—";
-              const divider = i < arr.length - 1 ? `<div style="width:1px;background:rgba(255,255,255,0.07);margin:2px 12px;align-self:stretch"></div>` : "";
-              return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:90px;padding:4px 0">
-                <span onclick="document.getElementById('tickerInput').value='${esc(c.ticker)}';runAnalysis();" style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--teal);letter-spacing:0.06em;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,229,195,0.35)">${esc(c.ticker)}</span>
-                <span style="font-family:var(--mono);font-size:0.75rem"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
-                <span style="font-size:0.6rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M</span>
-              </div>${divider}`;
-            }).join("")}
+            ${(() => {
+              const targetScore = d.scores ? Math.round(d.scores.overall) : null;
+              const allCards = [
+                { ticker: d.ticker, score: targetScore, ret: d.perf_year, isTarget: true },
+                ...(d.competitors || []).map(c => {
+                  const ps = (d.peer_scores || {})[c.ticker];
+                  return { ticker: c.ticker, score: ps ? Math.round(ps.overall) : null, ret: c.perf_year, isTarget: false };
+                })
+              ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+
+              return allCards.map((c, i, arr) => {
+                const retColor = c.ret == null ? "var(--text-3)" : c.ret >= 0 ? "var(--green)" : "var(--red)";
+                const retStr = c.ret != null ? `${c.ret >= 0 ? "+" : ""}${c.ret.toFixed(1)}%` : "—";
+                const scoreStr = c.score != null ? `${c.score}` : "—";
+                const divider = i < arr.length - 1 ? `<div style="width:1px;background:rgba(255,255,255,0.07);margin:2px 12px;align-self:stretch"></div>` : "";
+                const tickerEl = c.isTarget
+                  ? `<span style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--text-1);letter-spacing:0.06em;">${esc(c.ticker)} ★</span>`
+                  : `<span onclick="document.getElementById('tickerInput').value='${esc(c.ticker)}';runAnalysis();" style="font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--teal);letter-spacing:0.06em;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,229,195,0.35)">${esc(c.ticker)}</span>`;
+                return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:75px;padding:4px 0">
+                  ${tickerEl}
+                  <span style="font-family:var(--mono);font-size:0.75rem"><span style="color:var(--text-2)">${scoreStr}</span><span style="color:var(--text-3)"> · </span><span style="color:${retColor}">${retStr}</span></span>
+                  <span style="font-size:0.6rem;color:var(--text-3);letter-spacing:0.04em">Overall · 12M</span>
+                </div>${divider}`;
+              }).join("");
+            })()}
           </div>
         </div>
       </div>
@@ -1112,8 +1116,13 @@ function renderDashboard(d) {
             </tr>
           </thead>
           <tbody>
-            ${renderTargetRow(d, s.overall)}
-            ${peers.map(p => renderPeerRow(p, f)).join("")}
+            ${[...peers.map(p => ({ type: "peer", data: p, score: d.peer_scores?.[p.ticker]?.overall ?? -1 })),
+                { type: "target", data: d, score: s.overall ?? -1 }]
+              .sort((a, b) => b.score - a.score)
+              .map(item => item.type === "target"
+                ? renderTargetRow(item.data, s.overall)
+                : renderPeerRow(item.data, f, d.peer_scores))
+              .join("")}
           </tbody>
         </table>
       </div>
@@ -1208,7 +1217,8 @@ function renderTargetRow(d, overall) {
     </tr>`;
 }
 
-function renderPeerRow(p, tf) {
+function renderPeerRow(p, tf, peerScores) {
+  const peerOverall = peerScores?.[p.ticker]?.overall ?? null;
   const colorCls = (val, tgt, lowerBetter=false) => {
     if (val == null || tgt == null) return "";
     const better = lowerBetter ? +val < +tgt : +val > +tgt;
@@ -1229,7 +1239,7 @@ function renderPeerRow(p, tf) {
 
   return `
     <tr>
-      <td class="ticker-cell">${esc(p.ticker) || "—"}</td>
+      <td class="ticker-cell"><span onclick="document.getElementById('tickerInput').value='${esc(p.ticker)}';runAnalysis();" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,229,195,0.4)">${esc(p.ticker) || "—"}</span></td>
       <td class="name-cell">${esc(p.company_name)}</td>
       <td>${p.market_cap_b ? "$" + (+p.market_cap_b).toFixed(0) + "B" : "—"}</td>
       ${cell(p.pe_ratio,          tf.pe_ratio,          1, "", true)}
@@ -1242,7 +1252,7 @@ function renderPeerRow(p, tf) {
       ${growthCell(p.eps_growth_yoy,     tf.eps_growth_yoy)}
       ${cell(p.net_debt_ebitda,   tf.net_debt_ebitda,   1, "x", true)}
       ${cell(p.fcf_yield,         tf.fcf_yield,         1, "%")}
-      <td>—</td>
+      <td class="score-cell" style="color:${scoreColor(peerOverall ?? 0)}">${peerOverall != null ? Math.round(peerOverall) : "—"}</td>
     </tr>`;
 }
 

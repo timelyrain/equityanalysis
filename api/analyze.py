@@ -172,16 +172,16 @@ def resolve_ticker(query, api_key):
 
 
 def identify_peers(ticker, company_name, sector, industry, api_key):
-    """Use Claude to identify 5 best-in-class publicly traded peers by business model."""
+    """Use Claude to identify 7 best-in-class publicly traded peers by business model."""
     client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=100,
+        max_tokens=150,
         temperature=0,
         messages=[{
             "role": "user",
             "content": (
-                f"List the 5 closest publicly traded competitors to {ticker} "
+                f"List the 7 closest publicly traded competitors to {ticker} "
                 f"({company_name}, {sector} / {industry}) by actual business model and revenue overlap. "
                 f"Return ONLY a JSON array of uppercase ticker symbols, e.g. [\"AMD\",\"INTC\",\"QCOM\",\"AVGO\",\"TSM\"]. "
                 f"No explanation, no markdown, just the array."
@@ -193,7 +193,7 @@ def identify_peers(ticker, company_name, sector, industry, api_key):
     if not match:
         return []
     tickers = json.loads(match.group(0))
-    return [t.upper() for t in tickers if t.upper() != ticker.upper()][:5]
+    return [t.upper() for t in tickers if t.upper() != ticker.upper()][:7]
 
 
 # ── Scoring engine ────────────────────────────────────────────────────────────
