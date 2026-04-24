@@ -32,10 +32,11 @@ MIN_PEERS = 3  # minimum peers required for meaningful relative scoring
 US_EXCHANGES = {"NMS", "NYQ", "NGM", "NCM", "PCX", "ASE", "NYSEArca", "BATS", "PNK", "OTC", "NASDAQ", "NYSE"}
 
 CURRENCY_SYMBOLS = {
-    "USD": "$",  "EUR": "€",  "GBP": "£",  "HKD": "HK$", "JPY": "¥",
-    "CNY": "¥",  "AUD": "A$", "CAD": "C$", "CHF": "CHF ", "SEK": "SEK ",
-    "NOK": "NOK ","DKK": "DKK ","KRW": "₩", "INR": "₹",  "SGD": "S$",
-    "BRL": "R$", "MXN": "MX$","ZAR": "R ", "TWD": "NT$",
+    "USD": "$",   "EUR": "€",   "GBP": "£",   "HKD": "HK$", "JPY": "¥",
+    "CNY": "¥",   "AUD": "A$",  "CAD": "C$",  "CHF": "CHF ", "SEK": "SEK ",
+    "NOK": "NOK ","DKK": "DKK ","KRW": "₩",   "INR": "₹",   "SGD": "S$",
+    "BRL": "R$",  "MXN": "MX$", "ZAR": "R ",  "TWD": "NT$",
+    "MYR": "RM ", "IDR": "Rp ", "THB": "฿",   "PHP": "₱",   "VND": "₫",
 }
 
 
@@ -315,8 +316,11 @@ def resolve_ticker(query, api_key):
                 f'What is the CURRENT primary stock exchange ticker for "{query}"? '
                 f'Use the most up-to-date ticker — if the company has rebranded or renamed, use the new ticker. '
                 f'For US companies return the US ticker (e.g. AAPL, NVDA). '
-                f'For international companies return the primary listing ticker with exchange suffix '
-                f'(e.g. DHL.DE for Deutsche Post DHL Group, 0700.HK for Tencent, NESN.SW for Nestlé, HSBA.L for HSBC). '
+                f'For international companies return the primary listing ticker with exchange suffix. '
+                f'Examples by region: '
+                f'Europe: DHL.DE (Deutsche Post), ASML.AS (ASML), NESN.SW (Nestlé), HSBA.L (HSBC). '
+                f'Asia-Pacific: 0700.HK (Tencent), 9988.HK (Alibaba), 005930.KS (Samsung), 7203.T (Toyota). '
+                f'Southeast Asia: 1155.KL (Maybank), BBCA.JK (BCA Indonesia), PTT.BK (PTT Thailand). '
                 f'Reply with ONLY the ticker symbol in uppercase. If genuinely no match exists, reply UNKNOWN.'
             ),
         }],
