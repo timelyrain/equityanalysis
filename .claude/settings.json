@@ -37,7 +37,15 @@
       "Bash(python3 -c \"import sys,json; events=json.load\\(sys.stdin\\); [print\\(e.get\\('type',''\\), e.get\\('payload',{}\\).get\\('text',''\\)\\) for e in events.get\\('events',[]\\)]\")",
       "Bash(.venv/bin/python3 -c ' *)",
       "Bash(curl -s \"https://equityanalysis.vercel.app/api/health\")",
-      "Bash(python3 -c \"import sys; sys.path.insert\\(0, 'api'\\); import analyze\")"
+      "Bash(python3 -c \"import sys; sys.path.insert\\(0, 'api'\\); import analyze\")",
+      "Bash(git filter-repo *)",
+      "Bash(git filter-branch *)",
+      "Bash(git stash *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env.vercel' --prune-empty --tag-name-filter cat -- --all)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/hongkiatkoh/Developer/equityanalysis/public/idea.png)",
+      "Bash(sips --resampleWidth 600 /Users/hongkiatkoh/Developer/equityanalysis/public/idea.png)",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StockIQ — Institutional Analysis</title>
+  <title>IDEA — Institutional Deep Equity Analysis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -52,22 +52,35 @@
       padding: 0 24px;
       text-align: center;
     }
+    .search-headline-wrap { display: block; text-align: center; }
     .search-headline {
-      font-family: var(--sans);
-      font-size: clamp(1.8rem, 4vw, 2.6rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 8px;
+      font-family: var(--mono);
+      font-size: clamp(3.5rem, 12vw, 6rem);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      background: linear-gradient(180deg, #ffffff 0%, #a0a8b8 50%, #6b7280 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+      display: block;
     }
-    .search-headline em {
-      font-style: normal;
-      color: var(--teal);
+    .search-headline-sub {
+      font-family: var(--mono);
+      font-size: clamp(0.5rem, 2.8vw, 1.05rem);
+      font-weight: 500;
+      letter-spacing: clamp(0.08em, 0.8vw, 0.38em);
+      color: var(--text-2);
+      margin-bottom: 6px;
+      display: block;
+      text-align: center;
+      white-space: nowrap;
     }
     .search-sub {
-      font-size: 0.75rem;
+      font-size: 0.65rem;
       color: var(--text-3);
       letter-spacing: 0.08em;
-      text-transform: uppercase;
       margin-bottom: 36px;
     }
     .search-row {
@@ -617,6 +630,7 @@
       border-radius: 12px;
       padding: 40px 36px;
       width: 100%; max-width: 420px;
+      overflow: hidden;
       display: flex; flex-direction: column; gap: 16px;
       text-align: center;
     }
@@ -647,7 +661,12 @@
 <!-- INVITE CODE GATE -->
 <div id="gate">
   <div class="gate-box">
-    <div class="gate-title">Stock<span style="color:var(--teal)">IQ</span></div>
+    <div style="text-align:center;margin-bottom:4px">
+      <div class="search-headline-wrap">
+        <span class="search-headline" style="font-size:clamp(2.8rem,10vw,4.5rem)">IDEA</span>
+        <span class="search-headline-sub" style="font-size:clamp(0.5rem,3.5vw,0.82rem);letter-spacing:clamp(0.06em,0.5vw,0.18em)">Institutional Deep Equity Analysis</span>
+      </div>
+    </div>
     <div class="gate-sub">This tool is invite-only.<br>Enter your access code to continue.</div>
     <input id="gateInput" class="gate-input" type="text" placeholder="XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false" />
     <button class="gate-btn" onclick="submitCode()">Unlock Access</button>
@@ -656,8 +675,11 @@
 </div>
 
 <section class="search-section">
-  <h1 class="search-headline">Institutional<br><em>Equity Analysis</em></h1>
-  <p class="search-sub">Fundamental scoring · Peer ranking · Sector benchmarking</p>
+  <div class="search-headline-wrap">
+    <span class="search-headline">IDEA</span>
+    <span class="search-headline-sub">Institutional Deep Equity Analysis</span>
+  </div>
+  <p class="search-sub">Fundamental Scoring · Sector Benchmarking · Technical Timing · Analyst Consensus</p>
   <div class="search-row">
     <input
       id="tickerInput"
