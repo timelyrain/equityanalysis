@@ -653,7 +653,7 @@ def analyze():
         yf_info    = _yf_obj.info
         quote_type = yf_info.get("quoteType", "")
         if quote_type in ("ETF", "MUTUALFUND", "INDEX", "FUTURE", "CURRENCY"):
-            return jsonify({"error": f"{ticker} is an {quote_type.lower() if quote_type != 'ETF' else 'ETF'}. EQA is designed for individual equities — try a stock ticker instead."}), 422
+            return jsonify({"error": f"{ticker} is an {quote_type.lower() if quote_type != 'ETF' else 'ETF'}. IDEA is designed for individual equities — try a stock ticker instead."}), 422
         exchange       = yf_info.get("exchange", "")
         is_international = bool(exchange) and exchange not in US_EXCHANGES
         currency       = yf_info.get("currency", "USD")
