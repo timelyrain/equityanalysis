@@ -317,10 +317,13 @@ def resolve_ticker(query, api_key):
                 f'Use the most up-to-date ticker — if the company has rebranded or renamed, use the new ticker. '
                 f'For US companies return the US ticker (e.g. AAPL, NVDA). '
                 f'For international companies return the primary listing ticker with exchange suffix. '
-                f'Examples by region: '
-                f'Europe: DHL.DE (Deutsche Post), ASML.AS (ASML), NESN.SW (Nestlé), HSBA.L (HSBC). '
-                f'Asia-Pacific: 0700.HK (Tencent), 9988.HK (Alibaba), 005930.KS (Samsung), 7203.T (Toyota). '
-                f'Southeast Asia: 1155.KL (Maybank), BBCA.JK (BCA Indonesia), PTT.BK (PTT Thailand). '
+                f'Exchange suffixes by market: '
+                f'.DE Germany, .L London/UK, .PA France, .MI Italy, .SW Switzerland, .AS Netherlands; '
+                f'.T Japan, .HK Hong Kong, .SS Shanghai, .SZ Shenzhen, .KS South Korea, .TW Taiwan, .SI Singapore; '
+                f'.TO Canada, .KL Malaysia, .JK Indonesia, .BK Thailand. '
+                f'Examples: DHL.DE (Deutsche Post), HSBA.L (HSBC), MC.PA (LVMH), ENEL.MI (Enel), NESN.SW (Nestlé), '
+                f'7203.T (Toyota), 0700.HK (Tencent), 600519.SS (Kweichow Moutai), 005930.KS (Samsung), '
+                f'2330.TW (TSMC), D05.SI (DBS Bank), RY.TO (Royal Bank of Canada), 1155.KL (Maybank). '
                 f'Reply with ONLY the ticker symbol in uppercase. If genuinely no match exists, reply UNKNOWN.'
             ),
         }],
