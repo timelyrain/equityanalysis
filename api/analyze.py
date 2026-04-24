@@ -245,7 +245,7 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
         "debt_eq":            debt_eq,
         "net_debt_ebitda":    net_debt_ebitda,
         "fcf_yield":          fcf_yield,
-        "dividend_yield":     pct(info.get("dividendYield")),
+        "dividend_yield":     cap(pct(info.get("dividendYield")), 0, 30),
         "analyst_recom":      analyst_recom,
         "current_price":      current_price,
         "target_price":       target_price,
