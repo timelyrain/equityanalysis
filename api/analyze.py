@@ -628,16 +628,11 @@ def analyze():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured on server"}), 500
 
-    # If input already looks like a ticker use it directly, otherwise resolve via Claude
-    normalized = raw_input.upper()
-    if re.match(r'^[A-Z0-9]{1,6}(\.[A-Z]{1,3})?$', normalized):
-        ticker = normalized
-        resolved_from = None
-    else:
-        ticker = resolve_ticker(raw_input, api_key)
-        if not ticker:
-            return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA).'}), 400
-        resolved_from = raw_input
+    # Always resolve via Claude to get the correct current ticker
+    ticker = resolve_ticker(raw_input, api_key)
+    if not ticker:
+        return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA or DHL.DE).'}), 400
+    resolved_from = raw_input if ticker != raw_input.upper() else None
 
     # Return cached result if same ticker was analysed today
     cached = _ticker_cache.get(ticker)
@@ -666,30 +661,13 @@ def analyze():
             target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
             is_international = True
         else:
-            # US-format ticker: try Finviz → yfinance → resolve via Claude
             try:
                 target = fetch_fundamentals_finviz(ticker)
             except Exception:
-                try:
-                    target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
-                    exch = target.get("exchange", "")
-                    is_international = bool(exch) and exch not in US_EXCHANGES
-                    currency = target.get("currency", "USD")
-                except ValueError:
-                    # Both failed — may be an international ticker without suffix
-                    fallback = resolve_ticker(ticker, api_key)
-                    if not fallback or fallback == ticker:
-                        raise ValueError(f"No market data found for {ticker}")
-                    ticker = fallback
-                    resolved_from = resolved_from or raw_input
-                    _yf2 = yf.Ticker(ticker).info
-                    exch = _yf2.get("exchange", "")
-                    is_international = (bool(exch) and exch not in US_EXCHANGES) or "." in ticker
-                    currency = _yf2.get("currency", "USD")
-                    if is_international or "." in ticker:
-                        target = fetch_fundamentals_yfinance(ticker, yf_info=_yf2)
-                    else:
-                        target = fetch_fundamentals_finviz(ticker)
+                target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
+                exch = target.get("exchange", "")
+                is_international = bool(exch) and exch not in US_EXCHANGES
+                currency = target.get("currency", "USD")
         target.setdefault("currency", currency)
         target.setdefault("is_international", is_international)
     except ValueError as e:
