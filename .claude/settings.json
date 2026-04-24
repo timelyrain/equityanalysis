@@ -47,7 +47,8 @@
       "Bash(python3 -c ' *)",
       "Bash(node -e ' *)",
       "Bash(git tag *)",
-      "Bash(python3 -c \"import ast; ast.parse\\(open\\('api/analyze.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('api/analyze.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
+      "Bash(git revert *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
