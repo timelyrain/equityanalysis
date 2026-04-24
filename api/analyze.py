@@ -29,6 +29,15 @@ _ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
 
 MIN_PEERS = 3  # minimum peers required for meaningful relative scoring
 
+US_EXCHANGES = {"NMS", "NYQ", "NGM", "NCM", "PCX", "ASE", "NYSEArca", "BATS", "PNK", "OTC", "NASDAQ", "NYSE"}
+
+CURRENCY_SYMBOLS = {
+    "USD": "$",  "EUR": "€",  "GBP": "£",  "HKD": "HK$", "JPY": "¥",
+    "CNY": "¥",  "AUD": "A$", "CAD": "C$", "CHF": "CHF ", "SEK": "SEK ",
+    "NOK": "NOK ","DKK": "DKK ","KRW": "₩", "INR": "₹",  "SGD": "S$",
+    "BRL": "R$", "MXN": "MX$","ZAR": "R ", "TWD": "NT$",
+}
+
 
 def get_spy_perf():
     if time.time() - _spy_cache["ts"] < _SPY_TTL and _spy_cache["perf_year"] is not None:
@@ -59,7 +68,7 @@ def parse_num(val):
         return None
 
 
-def fetch_fundamentals(ticker):
+def fetch_fundamentals_finviz(ticker):
     stock = fvf(ticker)
     f = stock.ticker_fundament()
 
@@ -122,6 +131,136 @@ def fetch_fundamentals(ticker):
     }
 
 
+def _calc_rsi(closes, period=14):
+    """Wilder's smoothed RSI from a list of closing prices."""
+    if len(closes) < period + 1:
+        return None
+    deltas = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    gains  = [d if d > 0 else 0.0 for d in deltas]
+    losses = [-d if d < 0 else 0.0 for d in deltas]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(deltas)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    return round(100.0 - 100.0 / (1.0 + avg_gain / avg_loss), 2)
+
+
+def fetch_fundamentals_yfinance(ticker, yf_info=None):
+    """Fetch fundamentals for international stocks via yfinance."""
+    t    = yf.Ticker(ticker)
+    info = yf_info if yf_info is not None else t.info
+
+    def pct(v):
+        return round(v * 100, 2) if v is not None else None
+
+    market_cap_raw = info.get("marketCap")
+    market_cap_b   = round(market_cap_raw / 1e9, 2) if market_cap_raw else None
+
+    ev_raw    = info.get("enterpriseValue")
+    ev_b      = ev_raw / 1e9 if ev_raw else None
+    ev_ebitda = info.get("enterpriseToEbitda")
+
+    net_debt_ebitda = None
+    if ev_b and market_cap_b and ev_ebitda and ev_ebitda != 0:
+        ebitda_b        = ev_b / ev_ebitda
+        net_debt_ebitda = round((ev_b - market_cap_b) / ebitda_b, 2) if ebitda_b else None
+
+    fcf       = info.get("freeCashflow")
+    fcf_yield = round(fcf / market_cap_raw * 100, 2) if fcf and market_cap_raw else None
+
+    current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+    target_price  = info.get("targetMeanPrice")
+
+    # yfinance returns debtToEquity as a percentage (e.g. 176 = 1.76x) — normalise to ratio
+    debt_eq_raw = info.get("debtToEquity")
+    debt_eq = round(debt_eq_raw / 100, 2) if debt_eq_raw is not None else None
+
+    analyst_recom_raw = info.get("recommendationMean")
+    analyst_recom = str(round(analyst_recom_raw, 1)) if analyst_recom_raw is not None else None
+
+    rsi = vs_sma50 = vs_sma200 = pct_from_52h = perf_month = perf_year = None
+    try:
+        hist   = t.history(period="14mo")
+        closes = list(hist["Close"]) if not hist.empty else []
+        n      = len(closes)
+        if closes and current_price:
+            rsi = _calc_rsi(closes)
+            if n >= 50:
+                sma50    = sum(closes[-50:]) / 50
+                vs_sma50 = round((current_price - sma50) / sma50 * 100, 2)
+            if n >= 200:
+                sma200    = sum(closes[-200:]) / 200
+                vs_sma200 = round((current_price - sma200) / sma200 * 100, 2)
+            high_52w = info.get("fiftyTwoWeekHigh")
+            if high_52w is None and n > 0:
+                high_52w = max(closes[-252:] if n >= 252 else closes)
+            if high_52w:
+                pct_from_52h = round((current_price - high_52w) / high_52w * 100, 2)
+            if n >= 22:
+                perf_month = round((current_price - closes[-22]) / closes[-22] * 100, 2)
+            if n >= 253:
+                perf_year = round((current_price - closes[-253]) / closes[-253] * 100, 2)
+            elif n > 1:
+                perf_year = round((current_price - closes[0]) / closes[0] * 100, 2)
+    except Exception:
+        pass
+
+    return {
+        "ticker":             ticker.upper(),
+        "company_name":       info.get("shortName") or info.get("longName") or ticker.upper(),
+        "sector":             info.get("sector", ""),
+        "industry":           info.get("industry", ""),
+        "market_cap_b":       market_cap_b,
+        "pe_ratio":           info.get("trailingPE"),
+        "forward_pe":         info.get("forwardPE"),
+        "ev_ebitda":          ev_ebitda,
+        "ps_ratio":           info.get("priceToSalesTrailing12Months"),
+        "pb_ratio":           info.get("priceToBook"),
+        "gross_margin":       pct(info.get("grossMargins")),
+        "operating_margin":   pct(info.get("operatingMargins")),
+        "net_margin":         pct(info.get("profitMargins")),
+        "roe":                pct(info.get("returnOnEquity")),
+        "roic":               None,
+        "revenue_growth_yoy": pct(info.get("revenueGrowth")),
+        "eps_growth_yoy":     pct(info.get("earningsGrowth")),
+        "current_ratio":      info.get("currentRatio"),
+        "debt_eq":            debt_eq,
+        "net_debt_ebitda":    net_debt_ebitda,
+        "fcf_yield":          fcf_yield,
+        "dividend_yield":     pct(info.get("dividendYield")),
+        "analyst_recom":      analyst_recom,
+        "current_price":      current_price,
+        "target_price":       target_price,
+        "perf_year":          perf_year,
+        "perf_month":         perf_month,
+        "short_float":        pct(info.get("shortPercentOfFloat")),
+        "short_ratio":        info.get("shortRatio"),
+        "rsi":                rsi,
+        "vs_sma50":           vs_sma50,
+        "vs_sma200":          vs_sma200,
+        "pct_from_52h":       pct_from_52h,
+        "currency":           info.get("currency", "USD"),
+        "exchange":           info.get("exchange", ""),
+    }
+
+
+def fetch_fundamentals_auto(ticker, use_yfinance=False):
+    """Route to yfinance for international tickers (contain '.'), Finviz for US."""
+    if use_yfinance or "." in ticker:
+        return fetch_fundamentals_yfinance(ticker)
+    try:
+        result = fetch_fundamentals_finviz(ticker)
+        result.setdefault("currency", "USD")
+        return result
+    except Exception:
+        result = fetch_fundamentals_yfinance(ticker)
+        result["currency"] = "USD"
+        return result
+
+
 def fetch_earnings_date(ticker):
     """Return next earnings date as 'MMM D, YYYY' string, or None if unavailable."""
     try:
@@ -161,23 +300,25 @@ def short_sentiment(short_float, short_ratio):
 
 
 def resolve_ticker(query, api_key):
-    """Resolve a company name or misspelled input to a valid US ticker symbol."""
+    """Resolve a company name or misspelled input to a stock ticker (US or international)."""
     client = anthropic.Anthropic(api_key=api_key, timeout=15.0)
     response = client.messages.create(
         model=CLAUDE_MODEL_FAST,
-        max_tokens=10,
+        max_tokens=15,
         temperature=0,
         messages=[{
             "role": "user",
             "content": (
-                f'What is the primary US stock exchange ticker symbol for "{query}"? '
-                f'If ambiguous, return the largest or most widely traded US-listed company that best matches. '
+                f'What is the primary stock exchange ticker for "{query}"? '
+                f'For US companies return the US ticker (e.g. AAPL, NVDA). '
+                f'For international companies return the primary listing ticker with exchange suffix '
+                f'(e.g. DHL.DE for Deutsche Post, 0700.HK for Tencent, NESN.SW for Nestlé, HSBA.L for HSBC). '
                 f'Reply with ONLY the ticker symbol in uppercase. If genuinely no match exists, reply UNKNOWN.'
             ),
         }],
     )
     text = next((b.text for b in response.content if b.type == "text"), "").strip().upper()
-    if re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', text):
+    if re.match(r'^[A-Z0-9]{1,6}(\.[A-Z]{1,3})?$', text):
         return text
     return None
 
@@ -187,14 +328,15 @@ def identify_peers(ticker, company_name, sector, industry, api_key):
     client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=150,
+        max_tokens=200,
         temperature=0,
         messages=[{
             "role": "user",
             "content": (
                 f"List the 7 closest publicly traded competitors to {ticker} "
                 f"({company_name}, {sector} / {industry}) by actual business model and revenue overlap. "
-                f"Return ONLY a JSON array of uppercase ticker symbols, e.g. [\"AMD\",\"INTC\",\"QCOM\",\"AVGO\",\"TSM\"]. "
+                f"For international stocks use exchange suffixes (e.g. DHL.DE, 0700.HK, SHEL.L). "
+                f"Return ONLY a JSON array of ticker symbols, e.g. [\"AMD\",\"TSM\",\"ASML.AS\"]. "
                 f"No explanation, no markdown, just the array."
             ),
         }],
@@ -391,7 +533,7 @@ def compute_verdict(overall_score, analyst_recom, current_price, target_price):
 # ── Narrative prompt (Claude writes analysis only, no scoring) ────────────────
 
 NARRATIVE_PROMPT = """You are a senior institutional equity analyst. Fundamental data and scores have already been calculated. Use ONLY the data provided — do not search for anything.
-
+{market_context}
 TARGET: {ticker}
 COMPUTED SCORES: {scores_json}
 SHORT INTEREST: short_float={short_float}%, days_to_cover={short_ratio}, signal={short_signal}
@@ -484,7 +626,7 @@ def analyze():
 
     # If input already looks like a ticker use it directly, otherwise resolve via Claude
     normalized = raw_input.upper()
-    if re.match(r'^[A-Z]{1,4}(\.[A-Z])?$', normalized):
+    if re.match(r'^[A-Z0-9]{1,6}(\.[A-Z]{1,3})?$', normalized):
         ticker = normalized
         resolved_from = None
     else:
@@ -498,25 +640,38 @@ def analyze():
     if cached and cached["date"] == date.today():
         return jsonify({**cached["result"], "cache_hit": True})
 
-    # Step 1: reject ETFs early
+    # Step 1: reject ETFs early; detect exchange for routing
+    yf_info        = None
+    is_international = False
+    currency       = "USD"
     try:
-        quote_type = yf.Ticker(ticker).info.get("quoteType", "")
+        _yf_obj    = yf.Ticker(ticker)
+        yf_info    = _yf_obj.info
+        quote_type = yf_info.get("quoteType", "")
         if quote_type in ("ETF", "MUTUALFUND", "INDEX", "FUTURE", "CURRENCY"):
             return jsonify({"error": f"{ticker} is an {quote_type.lower() if quote_type != 'ETF' else 'ETF'}. IDEA is designed for individual equities — try a stock ticker instead."}), 422
+        exchange       = yf_info.get("exchange", "")
+        is_international = bool(exchange) and exchange not in US_EXCHANGES
+        currency       = yf_info.get("currency", "USD")
     except Exception:
-        pass  # if yfinance fails, fall through and let Finviz attempt it
+        pass
 
-    # Step 1: fetch target
+    # Step 2: fetch target (route based on exchange)
     try:
-        target = fetch_fundamentals(ticker)
+        if is_international:
+            target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
+        else:
+            target = fetch_fundamentals_finviz(ticker)
+        target.setdefault("currency", currency)
+        target.setdefault("is_international", is_international)
     except Exception as e:
-        logger.error("Finviz fetch failed for %s: %s", ticker, e)
+        logger.error("Fundamentals fetch failed for %s: %s", ticker, e)
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
     earnings_date = fetch_earnings_date(ticker)
     timing        = compute_timing(target)
 
-    # Step 2: Claude identifies best-in-class peers (one retry on failure)
+    # Step 3: Claude identifies best-in-class peers (one retry on failure)
     def _identify_peers_with_retry():
         try:
             return identify_peers(
@@ -540,17 +695,17 @@ def analyze():
 
     competitor_tickers = _identify_peers_with_retry()
 
-    # Step 3: fetch peer fundamentals
+    # Step 4: fetch peer fundamentals (same data source as target for consistent scaling)
     competitors = []
     peers_failed = []
     for ct in competitor_tickers:
         try:
-            competitors.append(fetch_fundamentals(ct))
+            competitors.append(fetch_fundamentals_auto(ct, use_yfinance=is_international))
         except Exception:
             peers_failed.append(ct)
             continue
 
-    # Step 4: deterministic Python scoring + short sentiment
+    # Step 5: deterministic Python scoring + short sentiment
     # Require at least 3 peers for meaningful relative scoring
     sf           = target.get("short_float")
     sr           = target.get("short_ratio")
@@ -574,7 +729,7 @@ def analyze():
         verdict           = "INSUFFICIENT DATA"
         verdict_composite = None
 
-    # Step 5: Claude writes narrative only
+    # Step 6: Claude writes narrative only
     # short_float/ratio already passed as named params; pb_ratio/roe/current_ratio/
     # current_price/dividend_yield/debt_eq add noise without improving narrative quality
     narrative_data = {
@@ -623,21 +778,31 @@ def analyze():
     client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
 
     try:
+        market_context = (
+            f"MARKET CONTEXT: International stock listed on {target.get('exchange', 'non-US exchange')} "
+            f"in {currency}. All financial metrics are reported in {currency}.\n"
+            if is_international else ""
+        )
+
+        def _prompt_kwargs():
+            return dict(
+                market_context=market_context,
+                ticker=ticker,
+                scores_json=json.dumps(scores, indent=2),
+                short_float=sf if sf is not None else "N/A",
+                short_ratio=sr if sr is not None else "N/A",
+                short_signal=short_signal,
+                timing_json=json.dumps(timing, indent=2),
+                data_json=json.dumps(narrative_data, indent=2),
+            )
+
         response = client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=3000,
             temperature=0,
             messages=[{
                 "role": "user",
-                "content": NARRATIVE_PROMPT.format(
-                    ticker=ticker,
-                    scores_json=json.dumps(scores, indent=2),
-                    short_float=sf if sf is not None else "N/A",
-                    short_ratio=sr if sr is not None else "N/A",
-                    short_signal=short_signal,
-                    timing_json=json.dumps(timing, indent=2),
-                    data_json=json.dumps(narrative_data, indent=2),
-                ),
+                "content": NARRATIVE_PROMPT.format(**_prompt_kwargs()),
             }],
         )
 
@@ -654,15 +819,7 @@ def analyze():
                 temperature=0,
                 messages=[{
                     "role": "user",
-                    "content": NARRATIVE_PROMPT.format(
-                        ticker=ticker,
-                        scores_json=json.dumps(scores, indent=2),
-                        short_float=sf if sf is not None else "N/A",
-                        short_ratio=sr if sr is not None else "N/A",
-                        short_signal=short_signal,
-                        timing_json=json.dumps(timing, indent=2),
-                        data_json=json.dumps(narrative_data, indent=2),
-                    ),
+                    "content": NARRATIVE_PROMPT.format(**_prompt_kwargs()),
                 }],
             )
             retry_text = next(
@@ -674,19 +831,21 @@ def analyze():
                 pass  # keep original partial narrative, banner will flag missing sections
 
         # Build final result: Python data + Python scores + Claude narrative
-        spy = get_spy_perf()
+        spy = None if is_international else get_spy_perf()
         result = {
-            "ticker":        target["ticker"],
-            "company_name":  target["company_name"],
-            "sector":        target["sector"],
-            "industry":      target["industry"],
-            "resolved_from": resolved_from,
-            "earnings_date": earnings_date,
-            "current_price": target.get("current_price"),
-            "target_price":  target.get("target_price"),
-            "perf_year":     target.get("perf_year"),
-            "spy_perf_year": spy,
-            "vs_sp500":      round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
+            "ticker":          target["ticker"],
+            "company_name":    target["company_name"],
+            "sector":          target["sector"],
+            "industry":        target["industry"],
+            "resolved_from":   resolved_from,
+            "earnings_date":   earnings_date,
+            "currency":        currency,
+            "is_international": is_international,
+            "current_price":   target.get("current_price"),
+            "target_price":    target.get("target_price"),
+            "perf_year":       target.get("perf_year"),
+            "spy_perf_year":   spy,
+            "vs_sp500":        round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
             "short_float":   sf,
             "short_ratio":   sr,
             "short_signal":  short_signal,
