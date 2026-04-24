@@ -666,7 +666,30 @@ def analyze():
             target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
             is_international = True
         else:
-            target = fetch_fundamentals_finviz(ticker)
+            # US-format ticker: try Finviz → yfinance → resolve via Claude
+            try:
+                target = fetch_fundamentals_finviz(ticker)
+            except Exception:
+                try:
+                    target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
+                    exch = target.get("exchange", "")
+                    is_international = bool(exch) and exch not in US_EXCHANGES
+                    currency = target.get("currency", "USD")
+                except ValueError:
+                    # Both failed — may be an international ticker without suffix
+                    fallback = resolve_ticker(ticker, api_key)
+                    if not fallback or fallback == ticker:
+                        raise ValueError(f"No market data found for {ticker}")
+                    ticker = fallback
+                    resolved_from = resolved_from or raw_input
+                    _yf2 = yf.Ticker(ticker).info
+                    exch = _yf2.get("exchange", "")
+                    is_international = (bool(exch) and exch not in US_EXCHANGES) or "." in ticker
+                    currency = _yf2.get("currency", "USD")
+                    if is_international or "." in ticker:
+                        target = fetch_fundamentals_yfinance(ticker, yf_info=_yf2)
+                    else:
+                        target = fetch_fundamentals_finviz(ticker)
         target.setdefault("currency", currency)
         target.setdefault("is_international", is_international)
     except ValueError as e:
