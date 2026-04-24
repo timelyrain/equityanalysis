@@ -88,7 +88,6 @@
       font-weight: 500;
       color: var(--text-1);
       letter-spacing: 0.12em;
-      text-transform: uppercase;
       transition: border-color 0.2s, box-shadow 0.2s;
       outline: none;
     }
@@ -217,7 +216,10 @@
       font-size: 0.85rem;
       font-weight: 700;
       letter-spacing: 0.05em;
+      position: relative;
+      cursor: default;
     }
+    .verdict-badge .short-tooltip { width: 320px; left: 0; top: calc(100% + 8px); }
     .verdict-STRONG-BUY  { background: rgba(46,213,115,0.15); border: 1px solid var(--green); color: var(--green); }
     .verdict-BUY         { background: rgba(0,229,195,0.12);  border: 1px solid var(--teal);  color: var(--teal); }
     .verdict-HOLD        { background: rgba(255,211,42,0.12); border: 1px solid var(--yellow); color: var(--yellow); }
@@ -305,6 +307,8 @@
       padding: 14px 16px;
       min-width: 300px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      font-weight: 400;
+      letter-spacing: normal;
     }
     .short-signal-wrap:hover .short-tooltip { display: block; }
     .tooltip-title {
@@ -405,8 +409,12 @@
       align-items: center;
       gap: 8px;
       transition: border-color 0.2s;
+      position: relative;
+      cursor: default;
     }
     .score-card:hover { border-color: var(--border-hi); }
+    .score-card .short-tooltip { width: 270px; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
+    .score-card:hover .short-tooltip { display: block; }
     .score-card.overall {
       border-color: rgba(0,229,195,0.3);
       background: linear-gradient(135deg, var(--bg-card), rgba(0,229,195,0.04));
@@ -682,6 +690,7 @@
       placeholder="Enter ticker or company name e.g. NVDA or NVIDIA"
       maxlength="60"
       autocomplete="off"
+      autocapitalize="none"
       spellcheck="false"
     />
     <button id="analyzeBtn" class="analyze-btn" onclick="runAnalysis()">Analyze</button>
@@ -761,10 +770,9 @@ document.getElementById("tickerInput").addEventListener("keydown", e => {
 
 // ── Render helpers ─────────────────────────────────────────
 
-const TIER_COLORS = { A: "#2ed573", B: "#00e5c3", C: "#ffd32a", D: "#f5a623", E: "#ff4757", F: "#ff4757" };
-function toTier(rank) {
-  const t = ["A", "B", "C", "D", "E", "F"][rank - 1];
-  if (!t) return "—";
+const TIER_COLORS = { A: "#2ed573", B: "#00e5c3", C: "#ffd32a", D: "#f5a623", F: "#ff4757" };
+function toTier(score) {
+  const t = score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : score >= 35 ? "D" : "F";
   return `<span style="color:${TIER_COLORS[t]}">${t}</span>`;
 }
 
@@ -903,8 +911,24 @@ function renderDashboard(d) {
       </div>
       <div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="verdict-badge verdict-${esc(verdictKey)}">
+          <div class="verdict-badge verdict-${esc(verdictKey)} short-signal-wrap">
             <span>${esc(d.analyst_verdict) || "HOLD"}</span>
+            <div class="short-tooltip">
+              <div class="tooltip-title">How the Overall Verdict is derived</div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-LOW">Analyst Consensus</span><span class="tooltip-desc">40% — sell-side avg recommendation</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">Price Target Upside</span><span class="tooltip-desc">35% — gap to consensus target</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">Peer Quality Score</span><span class="tooltip-desc">25% — fundamentals vs peers</span></div>
+              <hr class="tooltip-divider"/>
+              <div class="tooltip-title">Composite score thresholds</div>
+              <div class="tooltip-row"><span class="tooltip-badge verdict-STRONG-BUY">STRONG BUY</span><span class="tooltip-desc">≥ 78</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge verdict-BUY">BUY</span><span class="tooltip-desc">≥ 62</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge verdict-HOLD">HOLD</span><span class="tooltip-desc">≥ 42</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge verdict-UNDERPERFORM">UNDERPERFORM</span><span class="tooltip-desc">≥ 28</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge verdict-AVOID">AVOID</span><span class="tooltip-desc">&lt; 28</span></div>
+              ${d.verdict_composite != null ? `<hr class="tooltip-divider"/><div class="tooltip-row"><span class="tooltip-desc" style="text-align:left;color:var(--text-3)">This stock's composite score</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.8);font-weight:600">${d.verdict_composite}</span></div>` : ""}
+              <hr class="tooltip-divider"/>
+              <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="text-align:left;color:rgba(255,255,255,0.35)">Quantitative signal only — not a financial recommendation. Always conduct your own due diligence.</span></div>
+            </div>
           </div>
           ${(() => {
             const tp = d.target_price, cp = d.current_price;
@@ -992,16 +1016,63 @@ function renderDashboard(d) {
       <div class="section-title">Fundamental Metrics</div>
       <!-- SCORE RINGS -->
       <div class="scores-grid" id="scoresGrid" style="margin-bottom:8px;">
-        ${renderScoreCard("Valuation", s.valuation, r.valuation_rank, r.total_peers, false)}
-        ${renderScoreCard("Profitability", s.profitability, r.profitability_rank, r.total_peers, false)}
-        ${renderScoreCard("Growth", s.growth, r.growth_rank, r.total_peers, false)}
-        ${renderScoreCard("Fin. Health", s.financial_health, r.health_rank, r.total_peers, false)}
-        ${renderScoreCard("Overall", s.overall, r.overall_rank, r.total_peers, true)}
+        ${renderScoreCard("Valuation", s.valuation, r.valuation_rank, r.total_peers, false, `
+          <div class="tooltip-title">Valuation Score <span style="color:rgba(255,255,255,0.4);font-weight:400">— 20% of Overall</span></div>
+          <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc">Ranks the stock on 5 valuation multiples vs peers. <strong style="color:rgba(255,255,255,0.7)">Lower multiples score higher.</strong></span></div>
+          <hr class="tooltip-divider"/>
+          <div class="tooltip-row"><span class="tooltip-desc">P/E Ratio</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Forward P/E</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">EV/EBITDA</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">P/S Ratio</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">P/B Ratio</span></div>`)}
+        ${renderScoreCard("Profitability", s.profitability, r.profitability_rank, r.total_peers, false, `
+          <div class="tooltip-title">Profitability Score <span style="color:rgba(255,255,255,0.4);font-weight:400">— 30% of Overall</span></div>
+          <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc">Ranks the stock on 5 margin and return metrics vs peers. <strong style="color:rgba(255,255,255,0.7)">Higher is better.</strong></span></div>
+          <hr class="tooltip-divider"/>
+          <div class="tooltip-row"><span class="tooltip-desc">Gross Margin</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Operating Margin</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Net Margin</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">ROIC</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">ROE</span></div>`)}
+        ${renderScoreCard("Growth", s.growth, r.growth_rank, r.total_peers, false, `
+          <div class="tooltip-title">Growth Score <span style="color:rgba(255,255,255,0.4);font-weight:400">— 25% of Overall</span></div>
+          <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc">Ranks the stock on 2 year-over-year growth metrics vs peers. <strong style="color:rgba(255,255,255,0.7)">Higher is better.</strong></span></div>
+          <hr class="tooltip-divider"/>
+          <div class="tooltip-row"><span class="tooltip-desc">Revenue Growth YoY</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">EPS Growth YoY</span></div>`)}
+        ${renderScoreCard("Fin. Health", s.financial_health, r.health_rank, r.total_peers, false, `
+          <div class="tooltip-title">Financial Health Score <span style="color:rgba(255,255,255,0.4);font-weight:400">— 25% of Overall</span></div>
+          <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc">Ranks the stock on 2 balance sheet metrics vs peers.</span></div>
+          <hr class="tooltip-divider"/>
+          <div class="tooltip-row"><span class="tooltip-desc">Current Ratio <span style="color:rgba(255,255,255,0.4)">(higher is better)</span></span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Net Debt / EBITDA <span style="color:rgba(255,255,255,0.4)">(lower is better)</span></span></div>`)}
+        ${renderScoreCard("Overall", s.overall, r.overall_rank, r.total_peers, true, `
+          <div class="tooltip-title">Overall Score</div>
+          <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc">Weighted composite of all 4 dimension scores vs the peer group.</span></div>
+          <hr class="tooltip-divider"/>
+          <div class="tooltip-row"><span class="tooltip-desc">Profitability</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.6)">30%</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Growth</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.6)">25%</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Financial Health</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.6)">25%</span></div>
+          <div class="tooltip-row"><span class="tooltip-desc">Valuation</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.6)">20%</span></div>`)}
       </div>
       <div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.06em;margin-bottom:16px;text-align:right;">
         ${d.peers_found != null
           ? d.peers_found >= 3
-            ? `Scored against ${d.peers_found} peer${d.peers_found === 1 ? "" : "s"}`
+            ? `<span class="short-signal-wrap" style="display:inline-block;cursor:default;">Scored against ${d.peers_found} peer${d.peers_found === 1 ? "" : "s"}
+                <div class="short-tooltip" style="width:280px;right:0;left:auto;top:auto;bottom:calc(100% + 8px);">
+                  <div class="tooltip-title">How scores are calculated</div>
+                  <div class="tooltip-row" style="display:block;padding:3px 0"><span class="tooltip-desc">Each dimension score ranks this stock against its ${d.peers_found} closest peers on a 0–100 scale. A score of 100 means best in the group; 0 means worst.</span></div>
+                  <hr class="tooltip-divider"/>
+                  <div class="tooltip-row"><span class="tooltip-desc">Profitability</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.5)">30% of Overall</span></div>
+                  <div class="tooltip-row"><span class="tooltip-desc">Growth</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.5)">25% of Overall</span></div>
+                  <div class="tooltip-row"><span class="tooltip-desc">Financial Health</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.5)">25% of Overall</span></div>
+                  <div class="tooltip-row"><span class="tooltip-desc">Valuation</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.5)">20% of Overall</span></div>
+                  <hr class="tooltip-divider"/>
+                  <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.35)">Scores are relative to this specific peer group and change if the peer group changes.</span></div>
+                  ${d.peers_failed && d.peers_failed.length ? `<hr class="tooltip-divider"/><div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,71,87,0.7)">Could not load: ${d.peers_failed.join(", ")} — no data on Finviz.</span></div>` : ""}
+                  ${d.peers_attempted ? `<div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.25)">Attempted: ${d.peers_attempted.join(", ")}</span></div>` : ""}
+                </div>
+              </span>`
             : `&#9888; Only ${d.peers_found} peer${d.peers_found === 1 ? "" : "s"} retrieved — scores unreliable`
           : ""}
       </div>
@@ -1068,7 +1139,7 @@ function renderDashboard(d) {
                   const ps = (d.peer_scores || {})[c.ticker];
                   return { ticker: c.ticker, score: ps ? Math.round(ps.overall) : null, ret: c.perf_year, isTarget: false };
                 })
-              ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+              ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || (a.isTarget ? -1 : 1));
 
               const ordinal = n => ["1st","2nd","3rd","4th","5th","6th","7th","8th"][n] ?? `${n+1}th`;
               return allCards.map((c, i, arr) => {
@@ -1114,7 +1185,7 @@ function renderDashboard(d) {
           <tbody>
             ${[...peers.map(p => ({ type: "peer", data: p, score: d.peer_scores?.[p.ticker]?.overall ?? -1 })),
                 { type: "target", data: d, score: s.overall ?? -1 }]
-              .sort((a, b) => b.score - a.score)
+              .sort((a, b) => b.score - a.score || (a.type === "target" ? -1 : 1))
               .map(item => item.type === "target"
                 ? renderTargetRow(item.data, s.overall)
                 : renderPeerRow(item.data, f, d.peer_scores))
@@ -1197,7 +1268,14 @@ function renderDashboard(d) {
           <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
         </div>
       </div>
-      ${t.commentary ? `<p style="font-size:0.78rem;color:var(--text-2);margin:10px 0 0;line-height:1.5;">${esc(t.commentary)}</p>` : ""}`;
+      ${t.commentary ? (() => {
+        const oBull = ["STRONG BUY","BUY"].includes(d.verdict);
+        const oBear = ["UNDERPERFORM","AVOID"].includes(d.verdict);
+        const tBull = ["STRONG ENTRY","GOOD ENTRY"].includes(t.verdict);
+        const tBear = ["WAIT FOR PULLBACK","CAUTION"].includes(t.verdict);
+        const cc = (oBull && tBull) ? "var(--green)" : (oBear && tBear) ? "var(--amber)" : ((oBull && tBear) || (oBear && tBull)) ? "var(--red)" : "var(--text-2)";
+        return `<div style="margin:12px 0 0"><span style="font-size:0.62rem;letter-spacing:0.1em;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Takeaway</span><p style="font-size:0.72rem;font-style:italic;color:${cc};line-height:1.6;">${esc(t.commentary)}</p></div>`;
+      })() : ""}`;
     })() : ""}
 
     <div style="text-align:center;padding:24px 0 8px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:24px;" id="deploy-footer"></div>
@@ -1207,7 +1285,7 @@ function renderDashboard(d) {
   animateRings();
 }
 
-function renderScoreCard(label, score, rank, total, isOverall) {
+function renderScoreCard(label, score, rank, total, isOverall, tooltip) {
   const s = score ?? 0;
   const color = scoreColor(s);
   return `
@@ -1222,7 +1300,8 @@ function renderScoreCard(label, score, rank, total, isOverall) {
         <div class="ring-num" style="color:${color}">${s}</div>
       </div>
       <div class="score-label">${label}</div>
-      <div class="score-rank">Tier ${toTier(rank)}</div>
+      <div class="score-rank">Tier ${toTier(s)}</div>
+      ${tooltip ? `<div class="short-tooltip">${tooltip}</div>` : ""}
     </div>`;
 }
 

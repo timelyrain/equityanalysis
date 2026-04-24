@@ -171,7 +171,8 @@ def resolve_ticker(query, api_key):
             "role": "user",
             "content": (
                 f'What is the primary US stock exchange ticker symbol for "{query}"? '
-                f'Reply with ONLY the ticker symbol in uppercase. If unknown, reply UNKNOWN.'
+                f'If ambiguous, return the largest or most widely traded US-listed company that best matches. '
+                f'Reply with ONLY the ticker symbol in uppercase. If genuinely no match exists, reply UNKNOWN.'
             ),
         }],
     )
@@ -299,7 +300,7 @@ def compute_scores(target, competitors):
         results[t] = {"valuation": v, "profitability": p, "growth": g, "health": h, "overall": o}
 
     def rank_by(key):
-        ranked = sorted(tickers, key=lambda t: results[t][key], reverse=True)
+        ranked = sorted(tickers, key=lambda t: (results[t][key], t == tgt), reverse=True)
         return {t: i + 1 for i, t in enumerate(ranked)}
 
     tgt = target["ticker"]
@@ -346,12 +347,41 @@ def validate_narrative(n):
     )
 
 
-def score_to_verdict(overall):
-    if overall >= 80: return "STRONG BUY"
-    if overall >= 65: return "BUY"
-    if overall >= 45: return "HOLD"
-    if overall >= 25: return "UNDERPERFORM"
-    return "AVOID"
+def compute_verdict(overall_score, analyst_recom, current_price, target_price):
+    """
+    Composite verdict: 40% analyst consensus + 35% price target upside + 25% peer score.
+    Each component normalised to 0-100 before weighting.
+    Missing components are excluded and remaining weights are renormalised.
+    """
+    components = {}
+
+    recom_val = parse_num(analyst_recom)
+    if recom_val is not None:
+        # Finviz Recom: 1.0 = Strong Buy, 5.0 = Sell → invert to 0-100
+        components["consensus"] = (5 - recom_val) / 4 * 100
+
+    if current_price and target_price:
+        upside_pct = (target_price - current_price) / current_price * 100
+        # ≥30% → 100, 0% → 50, ≤-15% → 0, linear between
+        components["upside"] = max(0, min(100, (upside_pct + 15) / 45 * 100))
+
+    if overall_score is not None:
+        components["peer_score"] = overall_score
+
+    if not components:
+        return "HOLD", None
+
+    raw_weights = {"consensus": 0.40, "upside": 0.35, "peer_score": 0.25}
+    total_w = sum(raw_weights[k] for k in components)
+    composite = round(sum(components[k] * raw_weights[k] for k in components) / total_w)
+
+    if   composite >= 78: verdict = "STRONG BUY"
+    elif composite >= 62: verdict = "BUY"
+    elif composite >= 42: verdict = "HOLD"
+    elif composite >= 28: verdict = "UNDERPERFORM"
+    else:                 verdict = "AVOID"
+
+    return verdict, composite
 
 
 # ── Narrative prompt (Claude writes analysis only, no scoring) ────────────────
@@ -445,7 +475,7 @@ def analyze():
 
     # If input already looks like a ticker use it directly, otherwise resolve via Claude
     normalized = raw_input.upper()
-    if re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', normalized):
+    if re.match(r'^[A-Z]{1,4}(\.[A-Z])?$', normalized):
         ticker = normalized
         resolved_from = None
     else:
@@ -495,10 +525,12 @@ def analyze():
 
     # Step 3: fetch peer fundamentals
     competitors = []
+    peers_failed = []
     for ct in competitor_tickers:
         try:
             competitors.append(fetch_fundamentals(ct))
         except Exception:
+            peers_failed.append(ct)
             continue
 
     # Step 4: deterministic Python scoring + short sentiment
@@ -512,12 +544,18 @@ def analyze():
         scores      = scoring["scores"]
         rankings    = scoring["rankings"]
         peer_scores = scoring["peer_scores"]
-        verdict     = score_to_verdict(scores["overall"])
+        verdict, verdict_composite = compute_verdict(
+            scores["overall"],
+            target.get("analyst_recom"),
+            target.get("current_price"),
+            target.get("target_price"),
+        )
     else:
-        scores      = None
-        rankings    = {}
-        peer_scores = {}
-        verdict     = "INSUFFICIENT DATA"
+        scores            = None
+        rankings          = {}
+        peer_scores       = {}
+        verdict           = "INSUFFICIENT DATA"
+        verdict_composite = None
 
     # Step 5: Claude writes narrative only
     # short_float/ratio already passed as named params; pb_ratio/roe/current_ratio/
@@ -674,11 +712,14 @@ def analyze():
                 }
                 for c in competitors
             ],
-            "peers_found": len(competitors),
+            "peers_found":    len(competitors),
+            "peers_attempted": competitor_tickers,
+            "peers_failed":    peers_failed,
             "scores":      scores,
             "peer_scores": peer_scores,
             "rankings":    {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)} if rankings else {"sector_percentile": narrative.get("sector_percentile", 50)},
-            "analyst_verdict":  verdict,
+            "analyst_verdict":   verdict,
+            "verdict_composite": verdict_composite,
             "timing":           {**timing, "commentary": narrative.get("timing_commentary", "")},
             "strengths":        narrative.get("strengths", []),
             "weaknesses":       narrative.get("weaknesses", []),
