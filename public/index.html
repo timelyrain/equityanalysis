@@ -569,11 +569,10 @@
     /* ─── CASES + SIGNALS ─────────────────────────────── */
     .bottom-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 16px;
       margin-bottom: 36px;
     }
-    @media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 600px) { .bottom-grid { grid-template-columns: 1fr; } }
 
     .case-card {
@@ -584,48 +583,25 @@
     }
     .case-card.bull { border-top: 2px solid var(--green); }
     .case-card.bear { border-top: 2px solid var(--red); }
-    .case-card.risk { border-top: 2px solid var(--amber); }
     .case-tag {
       font-size: 0.58rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
     }
     .case-tag.bull { color: var(--green); }
     .case-tag.bear { color: var(--red); }
-    .case-tag.risk { color: var(--amber); }
+    .case-sublabel {
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin: 12px 0 6px;
+    }
+    .case-sublabel:first-of-type { margin-top: 0; }
     .case-text { font-size: 0.72rem; color: var(--text-2); line-height: 1.7; }
     .case-point { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
     .case-point:last-child { border-bottom: none; }
-
-    /* ─── STRENGTHS / WEAKNESSES ──────────────────────── */
-    .sw-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-    @media (max-width: 600px) { .sw-grid { grid-template-columns: 1fr; } }
-    .sw-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-    }
-    .sw-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      font-size: 0.72rem;
-      color: var(--text-2);
-      line-height: 1.5;
-    }
-    .sw-item:last-child { border-bottom: none; }
-    .sw-dot { flex-shrink: 0; margin-top: 6px; width: 5px; height: 5px; border-radius: 50%; }
-    .sw-dot.str { background: var(--green); }
-    .sw-dot.wk  { background: var(--red); }
 
     /* ─── GATE SCREEN ─────────────────────────────────── */
     #gate {
@@ -687,7 +663,7 @@
       id="tickerInput"
       class="ticker-input"
       type="text"
-      placeholder="Enter ticker or company name e.g. NVDA or NVIDIA"
+      placeholder="Ticker or company name"
       maxlength="60"
       autocomplete="off"
       autocapitalize="none"
@@ -774,6 +750,21 @@ const TIER_COLORS = { A: "#2ed573", B: "#00e5c3", C: "#ffd32a", D: "#f5a623", F:
 function toTier(score) {
   const t = score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : score >= 35 ? "D" : "F";
   return `<span style="color:${TIER_COLORS[t]}">${t}</span>`;
+}
+
+let _collapseId = 0;
+function renderPoints(points) {
+  if (!points || points.length === 0) return "";
+  const visible = points.slice(0, 3);
+  const hidden  = points.slice(3);
+  const id = "cp" + (++_collapseId);
+  const visibleHtml = visible.map(p => `<div class="case-point">· ${esc(p)}</div>`).join("");
+  if (hidden.length === 0) return visibleHtml;
+  const hiddenHtml = hidden.map(p => `<div class="case-point">· ${esc(p)}</div>`).join("");
+  return `${visibleHtml}
+    <div id="${id}" style="display:none">${hiddenHtml}</div>
+    <button onclick="(function(b){var d=document.getElementById('${id}');var open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'Show ${hidden.length} more ▾':'Show less ▴';})(this)"
+      style="background:none;border:none;color:var(--text-3);font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:6px 0 2px;font-family:var(--mono)">Show ${hidden.length} more ▾</button>`;
 }
 
 function fmtNum(v, dec=1, suffix="") {
@@ -877,10 +868,8 @@ function renderDashboard(d) {
   else if (d.peers_found != null && d.peers_found < 3) missing.push(`Peer comparison (only ${d.peers_found} peer${d.peers_found === 1 ? "" : "s"} retrieved — scores unreliable)`);
   if (!d.earnings_date)                      missing.push("Earnings date");
   if (!d.verdict_rationale)                  missing.push("Analyst narrative");
-  if (!d.bull_case   || d.bull_case.length   === 0) missing.push("Bull case");
-  if (!d.bear_case   || d.bear_case.length   === 0) missing.push("Bear case");
-  if (!d.strengths   || d.strengths.length   === 0) missing.push("Strengths");
-  if (!d.weaknesses  || d.weaknesses.length  === 0) missing.push("Weaknesses");
+  if (!d.investment_case?.present?.length) missing.push("Investment case");
+  if (!d.key_risks?.present?.length)       missing.push("Key risks");
 
   const cacheLabel = `<span style="margin-left:auto;opacity:0.5;font-size:0.6rem;">${d.cache_hit ? "⚡ served from cache" : "↻ freshly fetched"}</span>`;
   const resolvedLabel = d.resolved_from ? `<span style="opacity:0.7;font-size:0.6rem;">&#128269; "${esc(d.resolved_from)}" resolved to ${esc(d.ticker)}</span>` : "";
@@ -906,7 +895,7 @@ function renderDashboard(d) {
           <span class="meta-pill">${esc(d.sector)}</span>
           <span class="meta-pill">${esc(d.industry)}</span>
           ${f.market_cap_b ? `<span class="meta-pill">Mkt Cap $${(+f.market_cap_b).toFixed(1)}B</span>` : ""}
-          ${d.earnings_date ? `<span class="meta-pill" style="color:var(--teal)">&#9656; Earnings ${esc(d.earnings_date)}</span>` : ""}
+          ${d.earnings_date ? `<span class="meta-pill short-signal-wrap" style="color:var(--teal);cursor:default">&#9656; Earnings ${esc(d.earnings_date)}<div class="short-tooltip" style="width:300px;left:0;top:calc(100% + 8px)"><div class="tooltip-title">Why Earnings Date Matters</div><div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="text-align:left">Earnings releases trigger sharp price moves — often ±5–15% overnight. Initiating a new position within 1–2 weeks of this date carries event risk.</span></div><hr class="tooltip-divider"/><div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">New position</span><span class="tooltip-desc">Consider waiting for the report to clear before entering</span></div><div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">Holding through</span><span class="tooltip-desc">Be aware of volatility risk — consider sizing down</span></div></div></span>` : ""}
         </div>
       </div>
       <div>
@@ -1196,45 +1185,25 @@ function renderDashboard(d) {
       </div>
     </div>
 
-    <!-- BULL / BEAR / RISK -->
+    <!-- INVESTMENT CASE / KEY RISKS -->
     <div class="bottom-grid">
       <div class="case-card bull">
-        <div class="case-tag bull">▲ Bull Case</div>
+        <div class="case-tag bull">▲ Investment Case</div>
         <div class="case-text">
-          ${(Array.isArray(d.bull_case) ? d.bull_case : [d.bull_case]).filter(Boolean).map(p => `<div class="case-point">· ${esc(p)}</div>`).join("")}
+          <div class="case-sublabel">Present</div>
+          ${renderPoints((d.investment_case || {}).present || [])}
+          <div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>
+          ${renderPoints((d.investment_case || {}).forward || [])}
         </div>
       </div>
       <div class="case-card bear">
-        <div class="case-tag bear">▼ Bear Case</div>
+        <div class="case-tag bear">▼ Key Risks</div>
         <div class="case-text">
-          ${(Array.isArray(d.bear_case) ? d.bear_case : [d.bear_case]).filter(Boolean).map(p => `<div class="case-point">· ${esc(p)}</div>`).join("")}
+          <div class="case-sublabel">Present</div>
+          ${renderPoints((d.key_risks || {}).present || [])}
+          <div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>
+          ${renderPoints((d.key_risks || {}).forward || [])}
         </div>
-      </div>
-      <div class="case-card risk">
-        <div class="case-tag risk">⚠ Key Risks</div>
-        <div class="case-text">
-          ${(d.key_risks || []).map(r => `<div class="case-point">· ${esc(r)}</div>`).join("")}
-        </div>
-      </div>
-    </div>
-
-    <!-- STRENGTHS / WEAKNESSES -->
-    <div class="sw-grid">
-      <div class="sw-card">
-        <div class="section-title">Strengths</div>
-        ${(d.strengths || []).map(s => `
-          <div class="sw-item">
-            <div class="sw-dot str"></div>
-            <span>${esc(s)}</span>
-          </div>`).join("")}
-      </div>
-      <div class="sw-card">
-        <div class="section-title">Weaknesses</div>
-        ${(d.weaknesses || []).map(w => `
-          <div class="sw-item">
-            <div class="sw-dot wk"></div>
-            <span>${esc(w)}</span>
-          </div>`).join("")}
       </div>
     </div>
 
@@ -1267,15 +1236,12 @@ function renderDashboard(d) {
           <span class="short-lbl">Key Signals</span>
           <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
         </div>
-      </div>
-      ${t.commentary ? (() => {
-        const oBull = ["STRONG BUY","BUY"].includes(d.verdict);
-        const oBear = ["UNDERPERFORM","AVOID"].includes(d.verdict);
-        const tBull = ["STRONG ENTRY","GOOD ENTRY"].includes(t.verdict);
-        const tBear = ["WAIT FOR PULLBACK","CAUTION"].includes(t.verdict);
-        const cc = (oBull && tBull) ? "var(--green)" : (oBear && tBear) ? "var(--amber)" : ((oBull && tBear) || (oBear && tBull)) ? "var(--red)" : "var(--text-2)";
-        return `<div style="margin:12px 0 0"><span style="font-size:0.62rem;letter-spacing:0.1em;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Takeaway</span><p style="font-size:0.72rem;font-style:italic;color:${cc};line-height:1.6;">${esc(t.commentary)}</p></div>`;
-      })() : ""}`;
+        ${t.commentary ? `
+        <div class="short-item" style="flex-basis:100%;border-top:1px solid var(--border);padding-top:10px;min-width:0">
+          <span class="short-lbl">Final Takeaway</span>
+          <span style="font-size:0.72rem;font-style:italic;color:var(--text-2);line-height:1.6;">${esc(t.commentary)}</span>
+        </div>` : ""}
+      </div>`;
     })() : ""}
 
     <div style="text-align:center;padding:24px 0 8px;font-size:0.62rem;color:var(--text-3);letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:24px;" id="deploy-footer"></div>

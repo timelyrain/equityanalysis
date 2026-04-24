@@ -339,10 +339,14 @@ def extract_narrative_json(text):
 
 def validate_narrative(n):
     """Return True only if all required narrative keys are present and non-empty."""
-    required_lists = ["strengths", "weaknesses", "key_risks", "bull_case", "bear_case"]
-    required_strs  = ["verdict_rationale"]
+    required_strs = ["verdict_rationale"]
+    ic = n.get("investment_case", {})
+    kr = n.get("key_risks", {})
     return (
-        all(isinstance(n.get(k), list) and len(n[k]) > 0 for k in required_lists)
+        isinstance(ic, dict) and isinstance(ic.get("present"), list) and len(ic["present"]) > 0
+        and isinstance(ic.get("forward"), list) and len(ic["forward"]) > 0
+        and isinstance(kr, dict) and isinstance(kr.get("present"), list) and len(kr["present"]) > 0
+        and isinstance(kr.get("forward"), list) and len(kr["forward"]) > 0
         and all(isinstance(n.get(k), str) and n[k].strip() for k in required_strs)
     )
 
@@ -397,19 +401,24 @@ FULL DATA: {data_json}
 Write an institutional-grade narrative analysis. Factor in the short interest signal when assessing risk and opportunity. Return ONLY this JSON:
 
 {{
-  "strengths": ["string", "string", "string"],
-  "weaknesses": ["string", "string", "string"],
-  "key_risks": ["string", "string", "string"],
-  "bull_case": ["string", "string", "string"],
-  "bear_case": ["string", "string", "string"],
+  "investment_case": {{
+    "present": ["string", ...],
+    "forward": ["string", ...]
+  }},
+  "key_risks": {{
+    "present": ["string", ...],
+    "forward": ["string", ...]
+  }},
   "verdict_rationale": "string",
   "timing_commentary": "string",
   "sector_percentile": integer
 }}
 
 Rules:
-- strengths/weaknesses/bull_case/bear_case: 3 specific, data-backed points each
-- key_risks: 3 concrete risks with potential impact
+- investment_case.present: current strengths — what is true about the business TODAY (margins, balance sheet, competitive position, market share). Generate as many unique, data-backed points as warranted. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline — no elaboration, no multi-clause sentences.
+- investment_case.forward: bull catalysts — forward-looking opportunities and growth drivers. Generate as many unique points as warranted. No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
+- key_risks.present: current weaknesses — problems or vulnerabilities that exist NOW. Generate as many unique points as warranted. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
+- key_risks.forward: bear scenarios and specific risks — forward-looking downside risks, competitive threats, macro headwinds. Generate as many unique points as warranted. No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
 - verdict_rationale: 2-3 sentences referencing the computed scores and key metrics
 - timing_commentary: exactly 1 sentence connecting the technical timing verdict to the fundamental story (e.g. whether the timing supports acting now or waiting for a better entry)
 - sector_percentile: your estimate (0-100) of where {ticker} ranks in its broader sector universe"""
@@ -721,11 +730,8 @@ def analyze():
             "analyst_verdict":   verdict,
             "verdict_composite": verdict_composite,
             "timing":           {**timing, "commentary": narrative.get("timing_commentary", "")},
-            "strengths":        narrative.get("strengths", []),
-            "weaknesses":       narrative.get("weaknesses", []),
-            "key_risks":        narrative.get("key_risks", []),
-            "bull_case":        narrative.get("bull_case", []),
-            "bear_case":        narrative.get("bear_case", []),
+            "investment_case":  narrative.get("investment_case", {"present": [], "forward": []}),
+            "key_risks":        narrative.get("key_risks", {"present": [], "forward": []}),
             "verdict_rationale": narrative.get("verdict_rationale", ""),
         }
         result["cache_hit"] = False
