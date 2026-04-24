@@ -45,7 +45,9 @@
       "Bash(sips -g pixelWidth -g pixelHeight /Users/hongkiatkoh/Developer/equityanalysis/public/idea.png)",
       "Bash(sips --resampleWidth 600 /Users/hongkiatkoh/Developer/equityanalysis/public/idea.png)",
       "Bash(python3 -c ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git tag *)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('api/analyze.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
