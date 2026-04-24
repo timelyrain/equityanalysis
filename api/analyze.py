@@ -160,7 +160,18 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
     def pct(v):
         return round(v * 100, 2) if v is not None else None
 
+    def cap(v, lo=None, hi=None):
+        """Return None if value is outside plausible bounds (catches yfinance sentinel garbage)."""
+        if v is None:
+            return None
+        if lo is not None and v < lo:
+            return None
+        if hi is not None and v > hi:
+            return None
+        return v
+
     market_cap_raw = info.get("marketCap")
+    market_cap_raw = cap(market_cap_raw, 1e6, 2e13)  # $1M – $20T
     market_cap_b   = round(market_cap_raw / 1e9, 2) if market_cap_raw else None
 
     ev_raw    = info.get("enterpriseValue")
@@ -218,11 +229,11 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
         "sector":             info.get("sector", ""),
         "industry":           info.get("industry", ""),
         "market_cap_b":       market_cap_b,
-        "pe_ratio":           info.get("trailingPE"),
-        "forward_pe":         info.get("forwardPE"),
-        "ev_ebitda":          ev_ebitda,
-        "ps_ratio":           info.get("priceToSalesTrailing12Months"),
-        "pb_ratio":           info.get("priceToBook"),
+        "pe_ratio":           cap(info.get("trailingPE"),              0.1,  10000),
+        "forward_pe":         cap(info.get("forwardPE"),               0.1,  10000),
+        "ev_ebitda":          cap(ev_ebitda,                          -500,   2000),
+        "ps_ratio":           cap(info.get("priceToSalesTrailing12Months"), 0, 10000),
+        "pb_ratio":           cap(info.get("priceToBook"),               0,  10000),
         "gross_margin":       pct(info.get("grossMargins")),
         "operating_margin":   pct(info.get("operatingMargins")),
         "net_margin":         pct(info.get("profitMargins")),
