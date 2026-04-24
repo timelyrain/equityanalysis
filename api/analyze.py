@@ -306,7 +306,7 @@ def resolve_ticker(query, api_key):
     """Resolve a company name or misspelled input to a stock ticker (US or international)."""
     client = anthropic.Anthropic(api_key=api_key, timeout=15.0)
     response = client.messages.create(
-        model=CLAUDE_MODEL_FAST,
+        model=CLAUDE_MODEL,
         max_tokens=15,
         temperature=0,
         messages=[{
