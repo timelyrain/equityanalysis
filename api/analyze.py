@@ -153,6 +153,9 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
     t    = yf.Ticker(ticker)
     info = yf_info if yf_info is not None else t.info
 
+    if not info or not (info.get("shortName") or info.get("longName") or info.get("marketCap")):
+        raise ValueError(f"No market data found for {ticker} — ticker may be delisted or incorrect")
+
     def pct(v):
         return round(v * 100, 2) if v is not None else None
 
@@ -309,10 +312,11 @@ def resolve_ticker(query, api_key):
         messages=[{
             "role": "user",
             "content": (
-                f'What is the primary stock exchange ticker for "{query}"? '
+                f'What is the CURRENT primary stock exchange ticker for "{query}"? '
+                f'Use the most up-to-date ticker — if the company has rebranded or renamed, use the new ticker. '
                 f'For US companies return the US ticker (e.g. AAPL, NVDA). '
                 f'For international companies return the primary listing ticker with exchange suffix '
-                f'(e.g. DHL.DE for Deutsche Post, 0700.HK for Tencent, NESN.SW for Nestlé, HSBA.L for HSBC). '
+                f'(e.g. DHL.DE for Deutsche Post DHL Group, 0700.HK for Tencent, NESN.SW for Nestlé, HSBA.L for HSBC). '
                 f'Reply with ONLY the ticker symbol in uppercase. If genuinely no match exists, reply UNKNOWN.'
             ),
         }],
@@ -656,14 +660,17 @@ def analyze():
     except Exception:
         pass
 
-    # Step 2: fetch target (route based on exchange)
+    # Step 2: fetch target — any ticker with '.' always uses yfinance
     try:
-        if is_international:
+        if is_international or "." in ticker:
             target = fetch_fundamentals_yfinance(ticker, yf_info=yf_info)
+            is_international = True
         else:
             target = fetch_fundamentals_finviz(ticker)
         target.setdefault("currency", currency)
         target.setdefault("is_international", is_international)
+    except ValueError as e:
+        return jsonify({"error": str(e) + ". Try entering the ticker directly (e.g. DHL.DE)."}), 404
     except Exception as e:
         logger.error("Fundamentals fetch failed for %s: %s", ticker, e)
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
