@@ -498,6 +498,14 @@ def analyze():
     if cached and cached["date"] == date.today():
         return jsonify({**cached["result"], "cache_hit": True})
 
+    # Step 1: reject ETFs early
+    try:
+        quote_type = yf.Ticker(ticker).info.get("quoteType", "")
+        if quote_type in ("ETF", "MUTUALFUND", "INDEX", "FUTURE", "CURRENCY"):
+            return jsonify({"error": f"{ticker} is an {quote_type.lower() if quote_type != 'ETF' else 'ETF'}. IDEA is designed for individual equities — try a stock ticker instead."}), 422
+    except Exception:
+        pass  # if yfinance fails, fall through and let Finviz attempt it
+
     # Step 1: fetch target
     try:
         target = fetch_fundamentals(ticker)
