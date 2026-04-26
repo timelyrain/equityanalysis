@@ -60,7 +60,14 @@
       "Bash(python3 -c \"from PIL import Image; print\\('Pillow OK'\\)\")",
       "Bash(python3)",
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis status)",
-      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis log --oneline -3)"
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis log --oneline -3)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis diff public/index.html)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis diff HEAD public/index.html)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis status --short)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis diff HEAD -- public/index.html public/eqa.png public/eqa@1x.png public/eqa@2x.png public/idea.png)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis log --oneline -5)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis show --stat HEAD)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis push origin main)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
