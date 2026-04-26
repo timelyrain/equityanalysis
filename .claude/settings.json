@@ -54,7 +54,13 @@
       "Bash(sips -Z 300 public/eqa.png --out public/eqa@1x.png)",
       "Bash(sips -g pixelWidth -g pixelHeight public/eqa@2x.png)",
       "Bash(sips -g pixelWidth -g pixelHeight public/eqa@1x.png)",
-      "Bash(sips -g pixelWidth -g pixelHeight -g fileSize public/eqa.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight -g fileSize public/eqa.png)",
+      "Bash(convert --version)",
+      "Bash(magick --version)",
+      "Bash(python3 -c \"from PIL import Image; print\\('Pillow OK'\\)\")",
+      "Bash(python3)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis status)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis log --oneline -3)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"

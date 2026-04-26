@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IDEA — Institutional Deep Equity Analysis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Orbitron:wght@700;800;900&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg:        #05060f;
@@ -54,16 +54,16 @@
     }
     .search-headline-wrap { display: block; text-align: center; }
     .search-headline {
-      font-family: var(--mono);
-      font-size: clamp(3.5rem, 12vw, 6rem);
-      font-weight: 800;
-      letter-spacing: 0.06em;
+      font-family: 'Orbitron', var(--mono);
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      font-weight: 900;
+      letter-spacing: 0.12em;
       line-height: 1;
-      background: linear-gradient(180deg, #ffffff 0%, #a0a8b8 50%, #6b7280 100%);
+      background: linear-gradient(180deg, #ffffff 0%, #c8d0e0 30%, #8892a8 65%, #5a6278 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: block;
     }
     .search-headline-sub {
@@ -673,10 +673,8 @@
 <div id="gate">
   <div class="gate-box">
     <div style="text-align:center;margin-bottom:4px">
-      <img src="/eqa@1x.png"
-           srcset="/eqa@1x.png 1x, /eqa@2x.png 2x"
-           alt="EQA — Equity Analysis"
-           style="width:200px;max-width:58vw;height:auto;display:block;margin:0 auto;border-radius:8px">
+      <span class="search-headline" style="font-size:clamp(2rem,7vw,3.2rem)">EQA</span>
+      <span class="search-headline-sub">EQUITY ANALYSIS</span>
     </div>
     <div class="gate-sub">This tool is invite-only.<br>Enter your access code to continue.</div>
     <input id="gateInput" class="gate-input" type="text" placeholder="XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false" />
@@ -687,10 +685,8 @@
 
 <section class="search-section">
   <div class="search-headline-wrap">
-    <img src="/eqa@1x.png"
-         srcset="/eqa@1x.png 1x, /eqa@2x.png 2x"
-         alt="EQA — Equity Analysis"
-         style="width:260px;max-width:62vw;height:auto;display:block;margin:0 auto 20px;border-radius:10px">
+    <span class="search-headline">EQA</span>
+    <span class="search-headline-sub" style="margin-bottom:20px">EQUITY ANALYSIS</span>
   </div>
   <p class="search-sub" style="margin-top:-8px">Fundamental Scoring · Sector Benchmarking · Technical Timing · Analyst Consensus</p>
   <div class="search-row">
