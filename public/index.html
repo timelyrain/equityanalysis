@@ -500,6 +500,12 @@
     .score-card:hover { border-color: var(--border-hi); }
     .score-card .short-tooltip { width: 270px; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
     .score-card:hover .short-tooltip { display: block; }
+    @media (hover: none), (max-width: 600px) {
+      .short-tooltip,
+      .score-card:hover .short-tooltip,
+      .short-signal-wrap:hover .short-tooltip,
+      .verdict-badge:hover .short-tooltip { display: none !important; }
+    }
     .score-card.overall {
       border-color: rgba(0,229,195,0.3);
       background: linear-gradient(135deg, var(--bg-card), rgba(0,229,195,0.04));
