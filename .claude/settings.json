@@ -48,7 +48,13 @@
       "Bash(node -e ' *)",
       "Bash(git tag *)",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('api/analyze.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
-      "Bash(git revert *)"
+      "Bash(git revert *)",
+      "Bash(sips -g all public/eqa.png)",
+      "Bash(sips -Z 600 public/eqa.png --out public/eqa@2x.png)",
+      "Bash(sips -Z 300 public/eqa.png --out public/eqa@1x.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight public/eqa@2x.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight public/eqa@1x.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight -g fileSize public/eqa.png)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
