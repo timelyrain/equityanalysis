@@ -67,7 +67,10 @@
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis diff HEAD -- public/index.html public/eqa.png public/eqa@1x.png public/eqa@2x.png public/idea.png)",
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis log --oneline -5)",
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis show --stat HEAD)",
-      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis push origin main)"
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis push origin main)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis add public/index.html api/analyze.py)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis diff api/analyze.py)",
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis commit -m ' *)"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
