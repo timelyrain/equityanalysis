@@ -3,6 +3,8 @@ import logging
 import os
 import re
 import time
+import urllib.parse
+import urllib.request
 from datetime import date
 
 logger = logging.getLogger(__name__)
@@ -599,6 +601,29 @@ def check_invite_code(req):
         return True  # no codes configured = unrestricted
     code = req.headers.get("X-Invite-Code", "").strip().upper()
     return code in codes
+
+
+@app.route("/api/search", methods=["GET"])
+def search_tickers():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"quotes": []})
+    url = (
+        f"https://query2.finance.yahoo.com/v1/finance/search"
+        f"?q={urllib.parse.quote(q)}&quotesCount=8&newsCount=0&enableFuzzyQuery=false&enableCb=false"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        quotes = [
+            {k: r.get(k, "") for k in ("symbol", "shortname", "longname", "quoteType", "exchDisp", "exchange")}
+            for r in data.get("quotes", [])
+            if r.get("symbol") and r.get("quoteType")
+        ]
+        return jsonify({"quotes": quotes})
+    except Exception:
+        return jsonify({"quotes": []})
 
 
 @app.route("/api/verify-code", methods=["POST"])

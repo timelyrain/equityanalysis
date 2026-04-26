@@ -911,11 +911,10 @@ async function runAnalysis() {
 
   async function suggest(q) {
     try {
-      const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&enableFuzzyQuery=false&enableCb=false`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       if (!res.ok) return;
       const data = await res.json();
-      render((data.quotes || []).filter(r => r.symbol && r.quoteType));
+      render(data.quotes || []);
     } catch { hide(); }
   }
 
