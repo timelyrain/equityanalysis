@@ -835,7 +835,11 @@ async function runAnalysis() {
   statusBar.classList.add("visible");
   statusMsg.className = "status-msg";
   spinner.style.display = "block";
-  statusText.textContent = `Analysing ${ticker}…`;
+
+  let elapsed = 0;
+  const updateTimer = () => { statusText.textContent = `Analysing ${ticker}… (${elapsed}s)`; };
+  updateTimer();
+  const timerInterval = setInterval(() => { elapsed++; updateTimer(); }, 1000);
 
   try {
     const res = await fetch(API_URL, {
@@ -846,6 +850,7 @@ async function runAnalysis() {
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || "Analysis failed");
 
+    clearInterval(timerInterval);
     renderDashboard(data);
     const deployFooter = document.getElementById("deploy-footer");
     if (deployFooter && buildTime) deployFooter.textContent = "Last deployment: " + buildTime;
@@ -854,6 +859,7 @@ async function runAnalysis() {
     dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
 
   } catch (err) {
+    clearInterval(timerInterval);
     statusMsg.className = "status-msg error";
     spinner.style.display = "none";
     statusText.textContent = `Error: ${err.message}`;
