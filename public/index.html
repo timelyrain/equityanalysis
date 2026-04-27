@@ -1206,7 +1206,7 @@ function renderDashboard(d) {
   const resolvedLabel = d.resolved_from ? `<span style="opacity:0.7;font-size:0.6rem;">&#128269; "${esc(d.resolved_from)}" resolved to ${esc(d.ticker)}</span>` : "";
   const dataBanner = d._streaming
     ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
-        <div class="spinner" style="width:10px;height:10px;border-width:2px"></div> Market data loaded &mdash; generating AI insights… ${resolvedLabel}
+        <div class="spinner" style="width:10px;height:10px;border-width:2px"></div> Market data analysis completed &mdash; generating AI insights… ${resolvedLabel}
        </div>`
     : missing.length === 0
     ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
