@@ -5,6 +5,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 logger = logging.getLogger(__name__)
@@ -682,6 +683,11 @@ def analyze():
     if cached and cached["date"] == date.today():
         return jsonify({**cached["result"], "cache_hit": True})
 
+    # Start earnings + SPY fetches in background immediately — only need ticker
+    _executor = ThreadPoolExecutor(max_workers=8)
+    fut_earnings = _executor.submit(fetch_earnings_date, ticker)
+    fut_spy      = _executor.submit(get_spy_perf)
+
     # Step 1: reject ETFs early; detect exchange for routing
     yf_info        = None
     is_international = False
@@ -691,6 +697,7 @@ def analyze():
         yf_info    = _yf_obj.info
         quote_type = yf_info.get("quoteType", "")
         if quote_type in ("ETF", "MUTUALFUND", "INDEX", "FUTURE", "CURRENCY"):
+            _executor.shutdown(wait=False)
             return jsonify({"error": f"{ticker} is an {quote_type.lower() if quote_type != 'ETF' else 'ETF'}. EQA is designed for individual equities — try a stock ticker instead."}), 422
         exchange       = yf_info.get("exchange", "")
         is_international = bool(exchange) and exchange not in US_EXCHANGES
@@ -714,13 +721,14 @@ def analyze():
         target.setdefault("currency", currency)
         target.setdefault("is_international", is_international)
     except ValueError as e:
+        _executor.shutdown(wait=False)
         return jsonify({"error": str(e) + ". Try entering the ticker directly (e.g. DHL.DE)."}), 404
     except Exception as e:
+        _executor.shutdown(wait=False)
         logger.error("Fundamentals fetch failed for %s: %s", ticker, e)
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
-    earnings_date = fetch_earnings_date(ticker)
-    timing        = compute_timing(target)
+    timing = compute_timing(target)
 
     # Step 3: Claude identifies best-in-class peers (one retry on failure)
     def _identify_peers_with_retry():
@@ -746,15 +754,26 @@ def analyze():
 
     competitor_tickers = _identify_peers_with_retry()
 
-    # Step 4: fetch peer fundamentals (same data source as target for consistent scaling)
-    competitors = []
-    peers_failed = []
-    for ct in competitor_tickers:
+    # Step 4: fetch all peer fundamentals in parallel
+    def _fetch_peer_safe(ct):
         try:
-            competitors.append(fetch_fundamentals_auto(ct, use_yfinance=is_international))
+            return (ct, fetch_fundamentals_auto(ct, use_yfinance=is_international))
         except Exception:
+            return (ct, None)
+
+    peer_futures = {_executor.submit(_fetch_peer_safe, ct): ct for ct in competitor_tickers}
+    competitors  = []
+    peers_failed = []
+    for fut in as_completed(peer_futures):
+        ct, result = fut.result()
+        if result is not None:
+            competitors.append(result)
+        else:
             peers_failed.append(ct)
-            continue
+
+    # Collect background results (almost certainly done by now)
+    earnings_date = fut_earnings.result()
+    spy_result    = fut_spy.result()
 
     # Step 5: deterministic Python scoring + short sentiment
     # Require at least 3 peers for meaningful relative scoring
@@ -882,7 +901,8 @@ def analyze():
                 pass  # keep original partial narrative, banner will flag missing sections
 
         # Build final result: Python data + Python scores + Claude narrative
-        spy = None if is_international else get_spy_perf()
+        _executor.shutdown(wait=False)
+        spy = None if is_international else spy_result
         result = {
             "ticker":          target["ticker"],
             "company_name":    target["company_name"],
@@ -957,12 +977,15 @@ def analyze():
         return jsonify(result)
 
     except json.JSONDecodeError as e:
+        _executor.shutdown(wait=False)
         logger.error("Narrative JSON parse failed for %s: %s", ticker, e)
         return jsonify({"error": "Analysis response could not be parsed. Please try again."}), 500
     except anthropic.APIError as e:
+        _executor.shutdown(wait=False)
         logger.error("Anthropic API error for %s: %s", ticker, e)
         return jsonify({"error": "AI analysis service is temporarily unavailable. Please try again."}), 502
     except Exception as e:
+        _executor.shutdown(wait=False)
         logger.error("Unexpected error for %s: %s", ticker, e)
         return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
