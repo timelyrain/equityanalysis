@@ -1020,7 +1020,7 @@ def analyze():
             short_float=sf if sf is not None else "N/A",
             short_ratio=sr if sr is not None else "N/A",
             short_signal=short_signal,
-            timing_json=json.dumps({"verdict": timing.get("verdict"), "reasons": timing.get("reasons")}, indent=2),
+            timing_json=json.dumps(timing, indent=2),
             data_json=json.dumps(narrative_data, indent=2),
         )
 
