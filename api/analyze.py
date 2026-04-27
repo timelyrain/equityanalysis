@@ -25,7 +25,7 @@ CORS(app)
 CLAUDE_MODEL      = "claude-sonnet-4-6"  # narrative + peer identification
 CLAUDE_MODEL_FAST = "claude-haiku-4-5-20251001"   # ticker resolution only
 
-_spy_cache = {"perf_year": None, "ts": 0}
+_spy_cache = {"perf_year": None, "perf_quarter": None, "ts": 0}
 _SPY_TTL = 86400  # 24 hours
 
 _ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
@@ -45,15 +45,15 @@ CURRENCY_SYMBOLS = {
 
 def get_spy_perf():
     if time.time() - _spy_cache["ts"] < _SPY_TTL and _spy_cache["perf_year"] is not None:
-        return _spy_cache["perf_year"]
+        return (_spy_cache["perf_year"], _spy_cache.get("perf_quarter"))
     try:
         f = fvf("SPY").ticker_fundament()
-        val = parse_num(f.get("Perf Year"))
-        _spy_cache["perf_year"] = val
+        _spy_cache["perf_year"]    = parse_num(f.get("Perf Year"))
+        _spy_cache["perf_quarter"] = parse_num(f.get("Perf Quarter"))
         _spy_cache["ts"] = time.time()
-        return val
     except Exception:
-        return _spy_cache["perf_year"]
+        pass
+    return (_spy_cache.get("perf_year"), _spy_cache.get("perf_quarter"))
 
 
 def parse_num(val):
@@ -125,6 +125,7 @@ def fetch_fundamentals_finviz(ticker):
         "current_price": parse_num(f.get("Price")),
         "target_price":  parse_num(f.get("Target Price")),
         "perf_year":     parse_num(f.get("Perf Year")),
+        "perf_quarter":  parse_num(f.get("Perf Quarter")),
         "perf_month":    parse_num(f.get("Perf Month")),
         "short_float":   parse_num(f.get("Short Float")),
         "short_ratio":   parse_num(f.get("Short Ratio")),
@@ -150,6 +151,48 @@ def _calc_rsi(closes, period=14):
     if avg_loss == 0:
         return 100.0
     return round(100.0 - 100.0 / (1.0 + avg_gain / avg_loss), 2)
+
+
+def _calc_macd(closes, fast=12, slow=26, signal_period=9):
+    """Returns (macd_above_signal: bool, hist_rising: bool) or (None, None)."""
+    if len(closes) < slow + signal_period + 5:
+        return None, None
+    def _ema(prices, period):
+        k = 2.0 / (period + 1)
+        result = [prices[0]]
+        for p in prices[1:]:
+            result.append(p * k + result[-1] * (1 - k))
+        return result
+    ef = _ema(closes, fast)
+    es = _ema(closes, slow)
+    macd_line = [f - s for f, s in zip(ef, es)]
+    sig_line  = _ema(macd_line, signal_period)
+    hist      = [m - s for m, s in zip(macd_line, sig_line)]
+    if len(hist) < 2:
+        return None, None
+    return macd_line[-1] > sig_line[-1], hist[-1] > hist[-2]
+
+
+def _inject_price_signals(target, hist_df):
+    """Compute MACD, volume ratio and 3-month perf from a yfinance history DataFrame."""
+    try:
+        closes  = list(hist_df["Close"])
+        volumes = list(hist_df["Volume"]) if "Volume" in hist_df.columns else []
+        n = len(closes)
+        cp = target.get("current_price") or (closes[-1] if closes else None)
+        if not cp or n < 2:
+            return
+        macd_above, hist_rising = _calc_macd(closes)
+        target["macd_above_signal"] = macd_above
+        target["macd_hist_rising"]  = hist_rising
+        if len(volumes) >= 20:
+            avg_20d = sum(volumes[-20:]) / 20
+            if avg_20d > 0 and len(volumes) >= 5:
+                target["volume_ratio"] = round(sum(volumes[-5:]) / 5 / avg_20d, 2)
+        if n >= 63:
+            target["perf_quarter"] = round((cp - closes[-64]) / closes[-64] * 100, 2)
+    except Exception:
+        pass
 
 
 def fetch_fundamentals_yfinance(ticker, yf_info=None):
@@ -200,10 +243,12 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
     analyst_recom = str(round(analyst_recom_raw, 1)) if analyst_recom_raw is not None else None
 
     rsi = vs_sma50 = vs_sma200 = pct_from_52h = perf_month = perf_year = None
+    volume_ratio = macd_above_signal = macd_hist_rising = perf_quarter = None
     try:
-        hist   = t.history(period="14mo")
-        closes = list(hist["Close"]) if not hist.empty else []
-        n      = len(closes)
+        hist    = t.history(period="14mo")
+        closes  = list(hist["Close"]) if not hist.empty else []
+        volumes = list(hist["Volume"]) if not hist.empty and "Volume" in hist.columns else []
+        n       = len(closes)
         if closes and current_price:
             rsi = _calc_rsi(closes)
             if n >= 50:
@@ -219,10 +264,17 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
                 pct_from_52h = round((current_price - high_52w) / high_52w * 100, 2)
             if n >= 22:
                 perf_month = round((current_price - closes[-22]) / closes[-22] * 100, 2)
+            if n >= 63:
+                perf_quarter = round((current_price - closes[-64]) / closes[-64] * 100, 2)
             if n >= 253:
                 perf_year = round((current_price - closes[-253]) / closes[-253] * 100, 2)
             elif n > 1:
                 perf_year = round((current_price - closes[0]) / closes[0] * 100, 2)
+            macd_above_signal, macd_hist_rising = _calc_macd(closes)
+            if len(volumes) >= 20:
+                avg_20d = sum(volumes[-20:]) / 20
+                if avg_20d > 0 and len(volumes) >= 5:
+                    volume_ratio = round(sum(volumes[-5:]) / 5 / avg_20d, 2)
     except Exception:
         pass
 
@@ -253,6 +305,7 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
         "current_price":      current_price,
         "target_price":       target_price,
         "perf_year":          perf_year,
+        "perf_quarter":       perf_quarter,
         "perf_month":         perf_month,
         "short_float":        pct(info.get("shortPercentOfFloat")),
         "short_ratio":        info.get("shortRatio"),
@@ -260,6 +313,9 @@ def fetch_fundamentals_yfinance(ticker, yf_info=None):
         "vs_sma50":           vs_sma50,
         "vs_sma200":          vs_sma200,
         "pct_from_52h":       pct_from_52h,
+        "macd_above_signal":  macd_above_signal,
+        "macd_hist_rising":   macd_hist_rising,
+        "volume_ratio":       volume_ratio,
         "currency":           info.get("currency", "USD"),
         "exchange":           info.get("exchange", ""),
     }
@@ -690,6 +746,7 @@ def analyze():
     _executor = ThreadPoolExecutor(max_workers=8)
     fut_earnings = _executor.submit(fetch_earnings_date, ticker)
     fut_spy      = _executor.submit(get_spy_perf)
+    fut_history  = None  # yfinance price history for US stocks (MACD/volume)
 
     # Step 1: reject ETFs early; detect exchange for routing
     t1 = time.time()
@@ -706,6 +763,10 @@ def analyze():
         exchange       = yf_info.get("exchange", "")
         is_international = bool(exchange) and exchange not in US_EXCHANGES
         currency       = yf_info.get("currency", "USD")
+        # For US stocks: fetch price history in background for MACD + volume signals
+        # (international stocks compute these inside fetch_fundamentals_yfinance)
+        if not is_international and "." not in ticker:
+            fut_history = _executor.submit(lambda: _yf_obj.history(period="14mo"))
     except Exception:
         pass
 
@@ -722,6 +783,7 @@ def analyze():
                 exch = target.get("exchange", "")
                 is_international = bool(exch) and exch not in US_EXCHANGES
                 currency = target.get("currency", "USD")
+                fut_history = None  # yfinance already computed signals internally
         target.setdefault("currency", currency)
         target.setdefault("is_international", is_international)
     except ValueError as e:
@@ -733,7 +795,7 @@ def analyze():
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
     print(f"TIMING yf_info + target: {time.time()-t1:.2f}s")
-    timing = compute_timing(target)
+    # compute_timing deferred — needs spy quarter data and price history signals
 
     # Step 3: Claude identifies best-in-class peers (one retry on failure)
     t2 = time.time()
@@ -782,9 +844,19 @@ def analyze():
     print(f"TIMING peer fetches ({len(competitor_tickers)} peers): {time.time()-t3:.2f}s")
 
     # Collect background results (almost certainly done by now)
-    earnings_date = fut_earnings.result()
-    spy_result    = fut_spy.result()
-    print(f"TIMING earnings+spy background wait: {time.time()-t0:.2f}s")
+    earnings_date             = fut_earnings.result()
+    spy_perf_year, spy_perf_quarter = fut_spy.result()
+    # Inject MACD + volume signals for US stocks (from background history fetch)
+    if fut_history is not None:
+        try:
+            _inject_price_signals(target, fut_history.result(timeout=15))
+        except Exception:
+            pass
+    # Inject 3-month relative strength vs S&P 500 for timing
+    if not is_international and target.get("perf_quarter") and spy_perf_quarter:
+        target["rs_vs_spy_3m"] = round(target["perf_quarter"] - spy_perf_quarter, 2)
+    timing = compute_timing(target)
+    print(f"TIMING earnings+spy+history background wait: {time.time()-t0:.2f}s")
 
     # Step 5: deterministic Python scoring + short sentiment
     sf           = target.get("short_float")
@@ -810,7 +882,7 @@ def analyze():
         verdict_composite = None
 
     _executor.shutdown(wait=False)
-    spy = None if is_international else spy_result
+    spy = None if is_international else spy_perf_year
 
     # Phase 1 payload — all Python-computed data, narrative fields empty
     base_result = {

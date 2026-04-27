@@ -42,8 +42,23 @@ PERF_MONTH_CHASING   =  8.0  # up >8% this month → avoid chasing (−1)
 PERF_MONTH_DIP       = -5.0  # down 5–15% → dip opportunity (+1)
 PERF_MONTH_STEEP     = -15.0 # down >15% → fires instead of mild dip rule for steeper declines (+1)
 
+# ── MACD (derived signal: pre-computed integer −2 to +2) ──────────────────────
+# +2: above signal + histogram rising (momentum accelerating bullish)
+# +1: above signal (positive trend)
+# −1: below signal + histogram recovering (bearish but slowing)
+# −2: below signal + histogram falling (momentum accelerating bearish)
+
+# ── Volume signal (derived: pre-computed −1, 0, +1) ──────────────────────────
+VOL_HIGH_THRESHOLD   =  1.4  # 5d avg volume ÷ 20d avg — above = elevated activity
+
+# ── Relative strength vs S&P 500 (3-month return delta) ──────────────────────
+RS_SPY_STRONG        = 15.0  # >15% 3M outperformance → exceptional (+2)
+RS_SPY_MILD          =  5.0  # >5%  3M outperformance → positive (+1)
+RS_SPY_WEAK          = -5.0  # <−5%  3M underperformance → negative (−1)
+RS_SPY_BEAR          = -15.0 # <−15% 3M underperformance → significant (−2)
+
 # ── Verdict score thresholds ───────────────────────────────────────────────────
-SCORE_STRONG_ENTRY   =  4    # score ≥ 4
+SCORE_STRONG_ENTRY   =  5    # score ≥ 5  (raised from 4 — wider signal range)
 SCORE_GOOD_ENTRY     =  2    # score ≥ 2
 SCORE_NEUTRAL_MIN    = -1    # score ≥ −1  (−1, 0, 1 → NEUTRAL)
 SCORE_WAIT_MIN       = -4    # score ≥ −4  (−4, −3, −2 → WAIT FOR PULLBACK)
@@ -113,13 +128,39 @@ RULES = [
      "points":  0, "label": None},  # neutral band — blocks steep-dip rule from matching mild declines
     {"group": "momentum", "signal": "perf_month", "op": "range", "low": PERF_MONTH_STEEP, "high": PERF_MONTH_DIP,
      "points": +1, "label": "Monthly pullback — potential dip entry"},
+
+    # MACD — pre-computed integer signal (−2 to +2)
+    {"group": "macd", "signal": "macd_signal", "op": "eq", "value": 2,
+     "points": +2, "label": "MACD above signal + rising histogram — bullish momentum accelerating"},
+    {"group": "macd", "signal": "macd_signal", "op": "eq", "value": 1,
+     "points": +1, "label": "MACD above signal line — positive momentum trend"},
+    {"group": "macd", "signal": "macd_signal", "op": "eq", "value": -1,
+     "points": -1, "label": "MACD below signal, histogram recovering — bearish momentum slowing"},
+    {"group": "macd", "signal": "macd_signal", "op": "eq", "value": -2,
+     "points": -2, "label": "MACD below signal + falling histogram — bearish momentum accelerating"},
+
+    # Volume — pre-computed directional signal (−1, 0, +1)
+    {"group": "volume", "signal": "vol_signal", "op": "eq", "value":  1,
+     "points": +1, "label": "Above-average volume with price strength — institutional accumulation"},
+    {"group": "volume", "signal": "vol_signal", "op": "eq", "value": -1,
+     "points": -1, "label": "Above-average volume on weakness — distribution pressure"},
+
+    # Relative strength vs S&P 500 (3-month return delta) — tiered, first match wins
+    {"group": "rs_spy", "signal": "rs_vs_spy_3m", "op": "gte", "value": RS_SPY_STRONG,
+     "points": +2, "label": f"3M return {RS_SPY_STRONG:.0f}%+ above S&P 500 — exceptional relative strength"},
+    {"group": "rs_spy", "signal": "rs_vs_spy_3m", "op": "lt",  "value": RS_SPY_BEAR,
+     "points": -2, "label": f"3M return {abs(RS_SPY_BEAR):.0f}%+ below S&P 500 — significant relative weakness"},
+    {"group": "rs_spy", "signal": "rs_vs_spy_3m", "op": "gte", "value": RS_SPY_MILD,
+     "points": +1, "label": "3-month outperformance vs S&P 500 — positive relative strength"},
+    {"group": "rs_spy", "signal": "rs_vs_spy_3m", "op": "lt",  "value": RS_SPY_WEAK,
+     "points": -1, "label": "3-month underperformance vs S&P 500 — negative relative strength"},
 ]
 
 
 def compute_timing(target_data):
     """
     Compute technical timing verdict from target fundamentals data.
-    Returns dict: { verdict, score, reasons (up to 3 driving signals) }
+    Returns dict: { verdict, score, reasons (up to 5 driving signals) }
     """
     vs_sma50  = target_data.get("vs_sma50")
     vs_sma200 = target_data.get("vs_sma200")
@@ -135,6 +176,36 @@ def compute_timing(target_data):
         if vs_sma50 is not None and vs_sma200 is not None else None
     )
 
+    # Pre-compute MACD signal (integer −2 to +2)
+    macd_above  = target_data.get("macd_above_signal")
+    hist_rising = target_data.get("macd_hist_rising")
+    if macd_above is not None and hist_rising is not None:
+        if macd_above and hist_rising:
+            macd_signal = 2
+        elif macd_above:
+            macd_signal = 1
+        elif not hist_rising:
+            macd_signal = -2
+        else:
+            macd_signal = -1
+    else:
+        macd_signal = None
+
+    # Pre-compute volume directional signal (−1, 0, +1)
+    volume_ratio = target_data.get("volume_ratio")
+    if volume_ratio is not None and vs_sma50 is not None:
+        if volume_ratio >= VOL_HIGH_THRESHOLD:
+            if vs_sma50 > 0:
+                vol_signal = 1
+            elif vs_sma50 < -2:
+                vol_signal = -1
+            else:
+                vol_signal = 0
+        else:
+            vol_signal = 0
+    else:
+        vol_signal = None
+
     signals = {
         "rsi":               target_data.get("rsi"),
         "vs_sma50":          vs_sma50,
@@ -143,11 +214,14 @@ def compute_timing(target_data):
         "perf_month":        target_data.get("perf_month"),
         "target_upside_pct": target_upside_pct,
         "golden_cross":      golden_cross,
+        "macd_signal":       macd_signal,
+        "vol_signal":        vol_signal,
+        "rs_vs_spy_3m":      target_data.get("rs_vs_spy_3m"),
     }
 
     fired_groups = set()
-    score   = 0
-    reasons = []
+    score        = 0
+    fired_labels = []  # (abs_points, label) — sorted by impact before returning
 
     for rule in RULES:
         group = rule["group"]
@@ -171,7 +245,11 @@ def compute_timing(target_data):
             fired_groups.add(group)
             score += rule["points"]
             if rule.get("label"):
-                reasons.append(rule["label"])
+                fired_labels.append((abs(rule["points"]), rule["label"]))
+
+    # Surface highest-impact signals first so reasons reflect what actually drove the verdict
+    fired_labels.sort(key=lambda x: x[0], reverse=True)
+    reasons = [lbl for _, lbl in fired_labels]
 
     if   score >= SCORE_STRONG_ENTRY: verdict = "STRONG ENTRY"
     elif score >= SCORE_GOOD_ENTRY:   verdict = "GOOD ENTRY"
@@ -179,4 +257,4 @@ def compute_timing(target_data):
     elif score >= SCORE_WAIT_MIN:     verdict = "WAIT FOR PULLBACK"
     else:                             verdict = "CAUTION"
 
-    return {"verdict": verdict, "score": score, "reasons": reasons[:3]}
+    return {"verdict": verdict, "score": score, "reasons": reasons[:5]}
