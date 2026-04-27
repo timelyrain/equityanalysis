@@ -1560,15 +1560,17 @@ function renderDashboard(d) {
           <span class="short-lbl">Technical Outlook</span>
           <span class="short-signal-wrap">
             <span class="short-signal ${sigCls}">${esc(t.verdict)}</span>
-            <div class="short-tooltip">
-              <div class="tooltip-title">How to read the Entry Signal</div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-LOW">STRONG ENTRY</span><span class="tooltip-desc">Multiple bullish technicals aligned — RSI recovering, above key MAs, meaningful analyst upside</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">GOOD ENTRY</span><span class="tooltip-desc">Positive technical setup with no major red flags — reasonable conditions for a new position</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">NEUTRAL</span><span class="tooltip-desc">Mixed signals — technicals neither confirm nor deny. Consider waiting for clearer setup</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">WAIT FOR PULLBACK</span><span class="tooltip-desc">Stock extended or overbought — better entry likely on a dip. Fundamentals may still be strong</span></div>
-              <div class="tooltip-row"><span class="tooltip-badge sig-EXTREME">CAUTION</span><span class="tooltip-desc">Multiple bearish signals — below key MAs, weak momentum, or priced above analyst target</span></div>
+            <div class="short-tooltip" style="width:300px">
+              <div class="tooltip-title">Entry Signal — Score Thresholds</div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-LOW">STRONG ENTRY</span><span class="tooltip-desc">≥ +5</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-NORMAL">GOOD ENTRY</span><span class="tooltip-desc">≥ +2</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-UNKNOWN">NEUTRAL</span><span class="tooltip-desc">≥ −1</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">WAIT FOR PULLBACK</span><span class="tooltip-desc">≥ −4</span></div>
+              <div class="tooltip-row"><span class="tooltip-badge sig-EXTREME">CAUTION</span><span class="tooltip-desc">&lt; −4</span></div>
               <hr class="tooltip-divider"/>
-              <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.35)">Each signal contributes points (e.g. above 200-day MA +2, MACD bullish +2). Verdicts map to score ranges: Strong Entry ≥5 · Good Entry ≥2 · Neutral ≥−1 · Wait ≥−4 · Caution &lt;−4. Based on RSI, MACD, 50/200-day MAs, golden cross, 52-week high proximity, volume ratio, 3-month RS vs S&amp;P 500, analyst target upside, and monthly momentum. Not a buy/sell recommendation.</span></div>
+              <div class="tooltip-row"><span class="tooltip-desc" style="text-align:left;color:var(--text-3)">This stock's signal score</span><span class="tooltip-desc" style="color:rgba(255,255,255,0.8);font-weight:600">${t.score} / ±15</span></div>
+              <hr class="tooltip-divider"/>
+              <div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="color:rgba(255,255,255,0.35)">Scored across 10 signals: RSI, MACD, 50/200-day MAs, golden cross, 52-week high proximity, volume ratio, 3-month RS vs S&amp;P 500, analyst target upside, and monthly momentum. Not a buy/sell recommendation.</span></div>
             </div>
           </span>
         </div>
