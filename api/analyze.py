@@ -676,7 +676,7 @@ def analyze():
 
     # Always resolve via Claude to get the correct current ticker
     ticker = resolve_ticker(raw_input, api_key)
-    logger.info("TIMING resolve_ticker: %.2fs", time.time() - t0)
+    print(f"TIMING resolve_ticker: {time.time()-t0:.2f}s")
     if not ticker:
         return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA or DHL.DE).'}), 400
     resolved_from = raw_input if ticker != raw_input.upper() else None
@@ -732,7 +732,7 @@ def analyze():
         logger.error("Fundamentals fetch failed for %s: %s", ticker, e)
         return jsonify({"error": f"Could not retrieve market data for {ticker}. Please try again."}), 502
 
-    logger.info("TIMING yf_info + target: %.2fs", time.time() - t1)
+    print(f"TIMING yf_info + target: {time.time()-t1:.2f}s")
     timing = compute_timing(target)
 
     # Step 3: Claude identifies best-in-class peers (one retry on failure)
@@ -759,7 +759,7 @@ def analyze():
                 return []
 
     competitor_tickers = _identify_peers_with_retry()
-    logger.info("TIMING identify_peers: %.2fs", time.time() - t2)
+    print(f"TIMING identify_peers: {time.time()-t2:.2f}s")
 
     # Step 4: fetch all peer fundamentals in parallel
     t3 = time.time()
@@ -779,12 +779,12 @@ def analyze():
         else:
             peers_failed.append(ct)
 
-    logger.info("TIMING peer fetches (%d peers): %.2fs", len(competitor_tickers), time.time() - t3)
+    print(f"TIMING peer fetches ({len(competitor_tickers)} peers): {time.time()-t3:.2f}s")
 
     # Collect background results (almost certainly done by now)
     earnings_date = fut_earnings.result()
     spy_result    = fut_spy.result()
-    logger.info("TIMING earnings+spy background: %.2fs total wait", time.time() - t0)
+    print(f"TIMING earnings+spy background wait: {time.time()-t0:.2f}s")
 
     # Step 5: deterministic Python scoring + short sentiment
     # Require at least 3 peers for meaningful relative scoring
@@ -911,7 +911,7 @@ def analyze():
             except Exception:
                 pass  # keep original partial narrative, banner will flag missing sections
 
-        logger.info("TIMING Claude narrative: %.2fs", time.time() - t0)
+        print(f"TIMING Claude narrative: {time.time()-t0:.2f}s")
         # Build final result: Python data + Python scores + Claude narrative
         _executor.shutdown(wait=False)
         spy = None if is_international else spy_result
@@ -986,7 +986,7 @@ def analyze():
         }
         result["cache_hit"] = False
         _ticker_cache[ticker] = {"date": date.today(), "result": result}
-        logger.info("TIMING total: %.2fs", time.time() - t0)
+        print(f"TIMING total: {time.time()-t0:.2f}s")
         return jsonify(result)
 
     except json.JSONDecodeError as e:
