@@ -75,7 +75,11 @@
       "Bash(curl -s -I \"https://query2.finance.yahoo.com/v1/finance/search?q=AAPL&quotesCount=5&newsCount=0\")",
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis add public/index.html)",
       "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis add api/analyze.py)",
-      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis add api/analyze.py public/index.html)"
+      "Bash(git -C /Users/hongkiatkoh/Developer/equityanalysis add api/analyze.py public/index.html)",
+      "Bash(curl -s -X POST https://pfzlcanrjjmzeohpblab.supabase.co/rest/v1/rpc/version -H 'apikey: sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq' -H 'Authorization: Bearer sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq')",
+      "Bash(curl -s -X POST https://pfzlcanrjjmzeohpblab.supabase.co/rest/v1/searches -H 'apikey: sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq' -H 'Authorization: Bearer sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq' -H 'Content-Type: application/json' -H 'Prefer: return=minimal' -d '{\"passcode\":\"TEST\",\"ticker\":\"NVDA\",\"input_tokens\":100,\"output_tokens\":50}' -w '\\\\nHTTP status: %{http_code}')",
+      "Bash(curl -s 'https://pfzlcanrjjmzeohpblab.supabase.co/rest/v1/searches?select=*' -H 'apikey: sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq' -H 'Authorization: Bearer sb_publishable_MJ_v7cJvhT0IuTPccgpXdg_70Ry5Daq')",
+      "Bash(curl -s \"https://equityanalysis.vercel.app/api/test-log\")"
     ],
     "additionalDirectories": [
       "/Users/hongkiatkoh/Developer/equityanalysis"
