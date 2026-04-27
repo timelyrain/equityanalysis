@@ -1295,10 +1295,10 @@ function renderDashboard(d) {
           <span class="short-signal ${shortSignalClass(d.short_signal)}">${esc(d.short_signal)}</span>
           <div class="short-tooltip">
             <div class="tooltip-title">How to read short interest</div>
-            <div class="tooltip-row"><span class="tooltip-badge sig-HIGH">High short + Weak fundamentals</span><span class="tooltip-desc">Bearish confirmation — smart money agrees</span></div>
-            <div class="tooltip-row"><span class="tooltip-badge sig-SQUEEZE">High short + Strong fundamentals</span><span class="tooltip-desc">Tension signal — potential squeeze, contrarian opportunity</span></div>
-            <div class="tooltip-row"><span class="tooltip-badge sig-LOW">Low short + Strong fundamentals</span><span class="tooltip-desc">Clean bull setup — no headwinds from shorts</span></div>
-            <div class="tooltip-row"><span class="tooltip-badge sig-ELEVATED">High days-to-cover</span><span class="tooltip-desc">Any upward move risks cascading short covering</span></div>
+            <div class="tooltip-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="tooltip-badge sig-HIGH">High short + Weak fundamentals</span><span class="tooltip-desc" style="text-align:left">Bearish confirmation — smart money agrees</span></div>
+            <div class="tooltip-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="tooltip-badge sig-SQUEEZE">High short + Strong fundamentals</span><span class="tooltip-desc" style="text-align:left">Tension signal — potential squeeze, contrarian opportunity</span></div>
+            <div class="tooltip-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="tooltip-badge sig-LOW">Low short + Strong fundamentals</span><span class="tooltip-desc" style="text-align:left">Clean bull setup — no headwinds from shorts</span></div>
+            <div class="tooltip-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="tooltip-badge sig-ELEVATED">High days-to-cover</span><span class="tooltip-desc" style="text-align:left">Any upward move risks cascading short covering</span></div>
           </div>
         </span>
       </div>
