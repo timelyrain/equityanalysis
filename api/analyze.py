@@ -1096,3 +1096,23 @@ def analyze():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/test-log", methods=["GET"])
+def test_log():
+    url = os.environ.get("SUPABASE_URL", "")
+    key = os.environ.get("SUPABASE_KEY", "")
+    if not url or not key:
+        return jsonify({"error": "env vars missing", "SUPABASE_URL": bool(url), "SUPABASE_KEY": bool(key)}), 500
+    try:
+        payload = json.dumps({"passcode": "TEST", "ticker": "DEBUG", "input_tokens": 1, "output_tokens": 1}).encode()
+        req = urllib.request.Request(
+            f"{url}/rest/v1/searches",
+            data=payload,
+            headers={"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return jsonify({"status": r.status, "ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
