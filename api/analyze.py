@@ -1065,8 +1065,9 @@ def analyze():
                 "timing_commentary": narrative.get("timing_commentary", ""),
                 "sector_percentile": narrative.get("sector_percentile", 50),
             }
-            yield f"data: {json.dumps(phase2)}\n\n"
+            # Log before yielding so Vercel doesn't terminate the function first
             _log_search(passcode, ticker, total_input, total_output)
+            yield f"data: {json.dumps(phase2)}\n\n"
 
             # Cache the complete merged result for same-day requests
             full_result = {
