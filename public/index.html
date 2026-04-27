@@ -501,10 +501,9 @@
     .score-card .short-tooltip { width: 270px; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
     .score-card:hover .short-tooltip { display: block; }
     @media (hover: none), (max-width: 600px) {
-      .short-tooltip,
       .score-card:hover .short-tooltip,
-      .short-signal-wrap:hover .short-tooltip,
       .verdict-badge:hover .short-tooltip { display: none !important; }
+      .short-signal-wrap.tapped .short-tooltip { display: block !important; }
     }
     .score-card.overall {
       border-color: rgba(0,229,195,0.3);
@@ -1653,6 +1652,18 @@ fetch('/build.json')
     tip.classList.remove("visible");
   });
 })();
+
+// Tap-to-toggle .short-signal-wrap tooltips on touch devices
+document.addEventListener("click", function(e) {
+  const wrap = e.target.closest(".short-signal-wrap");
+  if (wrap) {
+    const already = wrap.classList.contains("tapped");
+    document.querySelectorAll(".short-signal-wrap.tapped").forEach(w => w.classList.remove("tapped"));
+    if (!already) wrap.classList.add("tapped");
+  } else {
+    document.querySelectorAll(".short-signal-wrap.tapped").forEach(w => w.classList.remove("tapped"));
+  }
+});
 </script>
 </body>
 </html>
