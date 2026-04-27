@@ -582,10 +582,10 @@ Write an institutional-grade narrative analysis. Factor in the short interest si
 }}
 
 Rules:
-- investment_case.present: current strengths — what is true about the business TODAY (margins, balance sheet, competitive position, market share). Generate as many unique, data-backed points as warranted. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline — no elaboration, no multi-clause sentences.
-- investment_case.forward: bull catalysts — forward-looking opportunities and growth drivers. Generate as many unique points as warranted. No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
-- key_risks.present: current weaknesses — problems or vulnerabilities that exist NOW. Generate as many unique points as warranted. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
-- key_risks.forward: bear scenarios and specific risks — forward-looking downside risks, competitive threats, macro headwinds. Generate as many unique points as warranted. No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
+- investment_case.present: current strengths — what is true about the business TODAY (margins, balance sheet, competitive position, market share). Generate up to 3 points (pick the strongest). Each point must be ONE concise sentence with the single most critical supporting metric or fact inline — no elaboration, no multi-clause sentences.
+- investment_case.forward: bull catalysts — forward-looking opportunities and growth drivers. Generate up to 3 points (pick the strongest). No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
+- key_risks.present: current weaknesses — problems or vulnerabilities that exist NOW. Generate up to 3 points (pick the most material). Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
+- key_risks.forward: bear scenarios and specific risks — forward-looking downside risks, competitive threats, macro headwinds. Generate up to 3 points (pick the most material). No overlap with present. Each point must be ONE concise sentence with the single most critical supporting metric or fact inline.
 - verdict_rationale: 2-3 sentences referencing the computed scores and key metrics
 - timing_commentary: exactly 1 sentence connecting the technical timing verdict to the fundamental story (e.g. whether the timing supports acting now or waiting for a better entry)
 - sector_percentile: your estimate (0-100) of where {ticker} ranks in its broader sector universe"""
