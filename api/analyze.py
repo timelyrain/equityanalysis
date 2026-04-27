@@ -32,29 +32,31 @@ _ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
 
 MIN_PEERS = 3  # minimum peers required for meaningful relative scoring
 
-# ── Supabase usage logging (lazy init — no-ops if env vars absent) ────────────
-_supabase_client = None
-
-def _get_supabase():
-    global _supabase_client
-    if _supabase_client is None:
-        url = os.environ.get("SUPABASE_URL", "")
-        key = os.environ.get("SUPABASE_KEY", "")
-        if url and key:
-            from supabase import create_client
-            _supabase_client = create_client(url, key)
-    return _supabase_client
-
+# ── Supabase usage logging via REST API (no extra package) ───────────────────
 def _log_search(passcode, ticker, input_tokens, output_tokens):
     try:
-        sb = _get_supabase()
-        if sb:
-            sb.table("searches").insert({
-                "passcode":      passcode,
-                "ticker":        ticker,
-                "input_tokens":  input_tokens,
-                "output_tokens": output_tokens,
-            }).execute()
+        url = os.environ.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_KEY", "")
+        if not url or not key:
+            return
+        payload = json.dumps({
+            "passcode":      passcode,
+            "ticker":        ticker,
+            "input_tokens":  input_tokens,
+            "output_tokens": output_tokens,
+        }).encode()
+        req = urllib.request.Request(
+            f"{url}/rest/v1/searches",
+            data=payload,
+            headers={
+                "apikey":        key,
+                "Authorization": f"Bearer {key}",
+                "Content-Type":  "application/json",
+                "Prefer":        "return=minimal",
+            },
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         print(f"Supabase log error: {e}")
 
