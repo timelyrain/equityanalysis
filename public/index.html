@@ -1145,7 +1145,7 @@ function renderDashboard(d) {
               ? `<span class="upside-tag ${upside >= 0 ? "up" : "down"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</span>`
               : "";
             const spyHtml = d.vs_sp500 != null
-              ? `<span class="upside-tag ${d.vs_sp500 >= 0 ? "up" : "down"}">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}% vs SPY</span>`
+              ? `<span class="upside-tag ${d.vs_sp500 >= 0 ? "up" : "down"}">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}% vs S&P500</span>`
               : "";
             return `<div>
               <div class="target-price-block">
