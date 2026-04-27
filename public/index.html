@@ -233,6 +233,18 @@
       animation: spin 0.8s linear infinite;
       flex-shrink: 0;
     }
+    .narrative-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-3);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      padding: 10px 0;
+    }
+    .narrative-loading .spinner {
+      width: 12px; height: 12px; border-width: 2px;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ─── DASHBOARD ───────────────────────────────────── */
@@ -837,9 +849,8 @@ async function runAnalysis() {
   spinner.style.display = "block";
 
   let elapsed = 0;
-  const updateTimer = () => { statusText.textContent = `Analysing ${ticker}… (${elapsed}s)`; };
-  updateTimer();
-  const timerInterval = setInterval(() => { elapsed++; updateTimer(); }, 1000);
+  let timerInterval = setInterval(() => { elapsed++; statusText.textContent = `Analysing ${ticker}… (${elapsed}s)`; }, 1000);
+  statusText.textContent = `Analysing ${ticker}… (0s)`;
 
   try {
     const res = await fetch(API_URL, {
@@ -847,16 +858,59 @@ async function runAnalysis() {
       headers: { "Content-Type": "application/json", "X-Invite-Code": localStorage.getItem("inviteCode") || "" },
       body: JSON.stringify({ ticker }),
     });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || "Analysis failed");
 
-    clearInterval(timerInterval);
-    renderDashboard(data);
-    const deployFooter = document.getElementById("deploy-footer");
-    if (deployFooter && buildTime) deployFooter.textContent = "Last deployment: " + buildTime;
-    statusBar.classList.remove("visible");
-    dashboard.classList.add("visible");
-    dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || "Analysis failed");
+    }
+
+    const isStream = (res.headers.get("content-type") || "").includes("text/event-stream");
+
+    if (isStream) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop();
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          const ev = JSON.parse(part.slice(6).trim());
+
+          if (ev._streaming === true) {
+            // Phase 1: render dashboard with loading placeholders (~5s)
+            clearInterval(timerInterval);
+            renderDashboard(ev);
+            const deployFooter = document.getElementById("deploy-footer");
+            if (deployFooter && buildTime) deployFooter.textContent = "Last deployment: " + buildTime;
+            statusBar.classList.remove("visible");
+            dashboard.classList.add("visible");
+            dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else if (ev.type === "narrative") {
+            // Phase 2: patch narrative sections (~35s)
+            patchNarrative(ev);
+          } else if (ev.type === "error") {
+            throw new Error(ev.error);
+          }
+        }
+      }
+    } else {
+      // Cache hit — regular JSON response
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      clearInterval(timerInterval);
+      renderDashboard(data);
+      const deployFooter = document.getElementById("deploy-footer");
+      if (deployFooter && buildTime) deployFooter.textContent = "Last deployment: " + buildTime;
+      statusBar.classList.remove("visible");
+      dashboard.classList.add("visible");
+      dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 
   } catch (err) {
     clearInterval(timerInterval);
@@ -866,6 +920,58 @@ async function runAnalysis() {
   }
 
   btn.disabled = false;
+}
+
+function patchNarrative(n) {
+  // Verdict rationale
+  const vEl = document.getElementById("patch-verdict");
+  if (vEl) {
+    if (n.verdict_rationale) {
+      vEl.style.display = "";
+      vEl.innerHTML = esc(n.verdict_rationale);
+    } else {
+      vEl.style.display = "none";
+    }
+  }
+
+  // Investment case
+  const invEl = document.getElementById("patch-investment");
+  if (invEl) {
+    const ic = n.investment_case || {};
+    invEl.innerHTML = `<div class="case-sublabel">Present</div>${renderPoints(ic.present||[])}<div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>${renderPoints(ic.forward||[])}`;
+  }
+
+  // Key risks
+  const riskEl = document.getElementById("patch-risks");
+  if (riskEl) {
+    const kr = n.key_risks || {};
+    riskEl.innerHTML = `<div class="case-sublabel">Present</div>${renderPoints(kr.present||[])}<div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>${renderPoints(kr.forward||[])}`;
+  }
+
+  // Timing commentary
+  const tcEl = document.getElementById("patch-timing-commentary");
+  const ttEl = document.getElementById("patch-timing-text");
+  if (tcEl) {
+    if (n.timing_commentary) {
+      tcEl.style.display = "";
+      if (ttEl) ttEl.textContent = n.timing_commentary;
+    } else {
+      tcEl.style.display = "none";
+    }
+  }
+
+  // Sector percentile
+  const spEl = document.getElementById("patch-sector-percentile");
+  if (spEl) spEl.textContent = n.sector_percentile ?? "—";
+
+  // Update banner to success state
+  const banner = document.getElementById("data-banner");
+  if (banner) {
+    banner.style.background = "rgba(0,229,195,0.06)";
+    banner.style.border = "1px solid rgba(0,229,195,0.25)";
+    banner.style.color = "var(--teal)";
+    banner.innerHTML = `<span>&#10003;</span> All data retrieved successfully. <span style="margin-left:auto;opacity:0.5;font-size:0.6rem;">↻ freshly fetched</span>`;
+  }
 }
 
 // ── Autocomplete ─────────────────────────────────────────────
@@ -1090,17 +1196,23 @@ function renderDashboard(d) {
   if (!d.competitors || d.competitors.length === 0)   missing.push("Peer comparison");
   else if (d.peers_found != null && d.peers_found < 3) missing.push(`Peer comparison (only ${d.peers_found} peer${d.peers_found === 1 ? "" : "s"} retrieved — scores unreliable)`);
   if (!d.earnings_date)                      missing.push("Earnings date");
-  if (!d.verdict_rationale)                  missing.push("Analyst narrative");
-  if (!d.investment_case?.present?.length) missing.push("Investment case");
-  if (!d.key_risks?.present?.length)       missing.push("Key risks");
+  if (!d._streaming) {
+    if (!d.verdict_rationale)                missing.push("Analyst narrative");
+    if (!d.investment_case?.present?.length) missing.push("Investment case");
+    if (!d.key_risks?.present?.length)       missing.push("Key risks");
+  }
 
   const cacheLabel = `<span style="margin-left:auto;opacity:0.5;font-size:0.6rem;">${d.cache_hit ? "⚡ served from cache" : "↻ freshly fetched"}</span>`;
   const resolvedLabel = d.resolved_from ? `<span style="opacity:0.7;font-size:0.6rem;">&#128269; "${esc(d.resolved_from)}" resolved to ${esc(d.ticker)}</span>` : "";
-  const dataBanner = missing.length === 0
-    ? `<div style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
+  const dataBanner = d._streaming
+    ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
+        <div class="spinner" style="width:10px;height:10px;border-width:2px"></div> Market data loaded &mdash; generating written analysis… ${resolvedLabel}
+       </div>`
+    : missing.length === 0
+    ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
         <span>&#10003;</span> All data retrieved successfully. ${resolvedLabel} ${cacheLabel}
        </div>`
-    : `<div style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.3);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--yellow);display:flex;align-items:center;gap:8px;">
+    : `<div id="data-banner" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.3);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--yellow);display:flex;align-items:center;gap:8px;">
         <span>&#9888;</span> Incomplete data &mdash; missing: ${missing.join(", ")}. ${resolvedLabel} ${cacheLabel}
        </div>`;
 
@@ -1169,7 +1281,9 @@ function renderDashboard(d) {
     </div>
 
     <!-- ANALYST VIEW -->
-    ${d.verdict_rationale ? `<div class="analyst-view">${esc(d.verdict_rationale)}</div>` : ""}
+    <div id="patch-verdict" class="analyst-view" style="${!d.verdict_rationale && !d._streaming ? 'display:none' : ''}">
+      ${d.verdict_rationale ? esc(d.verdict_rationale) : `<span class="narrative-loading"><div class="spinner"></div>Generating analysis…</span>`}
+    </div>
 
     <!-- SHORT INTEREST -->
     ${d.short_signal ? `
@@ -1328,7 +1442,7 @@ function renderDashboard(d) {
       <!-- RANKING BANNER -->
       <div class="ranking-banner" style="margin-bottom:16px;">
         <div class="rank-item">
-          <div class="rank-val">${r.sector_percentile ?? "—"}</div>
+          <div class="rank-val" id="patch-sector-percentile">${r.sector_percentile ?? "—"}</div>
           <span class="short-signal-wrap">
             <div class="rank-lbl" style="cursor:default;border-bottom:1px dashed var(--text-3);display:inline-block">Sector Percentile by Peers</div>
             <div class="short-tooltip">
@@ -1417,20 +1531,18 @@ function renderDashboard(d) {
     <div class="bottom-grid">
       <div class="case-card bull">
         <div class="case-tag bull">▲ Investment Case</div>
-        <div class="case-text">
-          <div class="case-sublabel">Present</div>
-          ${renderPoints((d.investment_case || {}).present || [])}
-          <div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>
-          ${renderPoints((d.investment_case || {}).forward || [])}
+        <div class="case-text" id="patch-investment">
+          ${(d.investment_case?.present?.length || d.investment_case?.forward?.length)
+            ? `<div class="case-sublabel">Present</div>${renderPoints((d.investment_case||{}).present||[])}<div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>${renderPoints((d.investment_case||{}).forward||[])}`
+            : `<span class="narrative-loading"><div class="spinner"></div>Generating…</span>`}
         </div>
       </div>
       <div class="case-card bear">
         <div class="case-tag bear">▼ Key Risks</div>
-        <div class="case-text">
-          <div class="case-sublabel">Present</div>
-          ${renderPoints((d.key_risks || {}).present || [])}
-          <div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>
-          ${renderPoints((d.key_risks || {}).forward || [])}
+        <div class="case-text" id="patch-risks">
+          ${(d.key_risks?.present?.length || d.key_risks?.forward?.length)
+            ? `<div class="case-sublabel">Present</div>${renderPoints((d.key_risks||{}).present||[])}<div class="case-sublabel" style="margin-top:14px">Forward-Looking</div>${renderPoints((d.key_risks||{}).forward||[])}`
+            : `<span class="narrative-loading"><div class="spinner"></div>Generating…</span>`}
         </div>
       </div>
     </div>
@@ -1464,11 +1576,10 @@ function renderDashboard(d) {
           <span class="short-lbl">Key Signals</span>
           <span style="font-size:0.72rem;color:var(--text-2)">${esc(reasons)}</span>
         </div>
-        ${t.commentary ? `
-        <div class="short-item" style="flex-basis:100%;border-top:1px solid var(--border);padding-top:10px;min-width:0">
+        <div id="patch-timing-commentary" style="${!t.commentary && !d._streaming ? 'display:none' : ''}; flex-basis:100%;border-top:1px solid var(--border);padding-top:10px;min-width:0">
           <span class="short-lbl">Final Takeaway</span>
-          <span style="font-size:0.72rem;font-style:italic;color:var(--text-2);line-height:1.6;">${esc(t.commentary)}</span>
-        </div>` : ""}
+          <span id="patch-timing-text" style="font-size:0.72rem;font-style:italic;color:var(--text-2);line-height:1.6;">${t.commentary ? esc(t.commentary) : `<span class="narrative-loading" style="padding:0"><div class="spinner"></div>Generating…</span>`}</span>
+        </div>
       </div>`;
     })() : ""}
 

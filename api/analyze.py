@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 import anthropic
 import yfinance as yf
 from finvizfinance.quote import finvizfinance as fvf
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -787,7 +787,6 @@ def analyze():
     print(f"TIMING earnings+spy background wait: {time.time()-t0:.2f}s")
 
     # Step 5: deterministic Python scoring + short sentiment
-    # Require at least 3 peers for meaningful relative scoring
     sf           = target.get("short_float")
     sr           = target.get("short_ratio")
     short_signal = short_sentiment(sf, sr)
@@ -810,31 +809,47 @@ def analyze():
         verdict           = "INSUFFICIENT DATA"
         verdict_composite = None
 
-    # Step 6: Claude writes narrative only
-    # short_float/ratio already passed as named params; pb_ratio/roe/current_ratio/
-    # current_price/dividend_yield/debt_eq add noise without improving narrative quality
-    narrative_data = {
-        "target": {
-            "ticker":             target.get("ticker"),
-            "company_name":       target.get("company_name"),
-            "sector":             target.get("sector"),
-            "industry":           target.get("industry"),
+    _executor.shutdown(wait=False)
+    spy = None if is_international else spy_result
+
+    # Phase 1 payload — all Python-computed data, narrative fields empty
+    base_result = {
+        "_streaming":      True,
+        "cache_hit":       False,
+        "ticker":          target["ticker"],
+        "company_name":    target["company_name"],
+        "sector":          target["sector"],
+        "industry":        target["industry"],
+        "resolved_from":   resolved_from,
+        "earnings_date":   earnings_date,
+        "currency":        currency,
+        "is_international": is_international,
+        "current_price":   target.get("current_price"),
+        "target_price":    target.get("target_price"),
+        "perf_year":       target.get("perf_year"),
+        "spy_perf_year":   spy,
+        "vs_sp500":        round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
+        "short_float":     sf,
+        "short_ratio":     sr,
+        "short_signal":    short_signal,
+        "fundamentals": {
             "market_cap_b":       target.get("market_cap_b"),
             "pe_ratio":           target.get("pe_ratio"),
             "forward_pe":         target.get("forward_pe"),
             "ev_ebitda":          target.get("ev_ebitda"),
             "ps_ratio":           target.get("ps_ratio"),
+            "pb_ratio":           target.get("pb_ratio"),
             "gross_margin":       target.get("gross_margin"),
             "operating_margin":   target.get("operating_margin"),
             "net_margin":         target.get("net_margin"),
             "roic":               target.get("roic"),
+            "roe":                target.get("roe"),
             "revenue_growth_yoy": target.get("revenue_growth_yoy"),
             "eps_growth_yoy":     target.get("eps_growth_yoy"),
             "net_debt_ebitda":    target.get("net_debt_ebitda"),
+            "current_ratio":      target.get("current_ratio"),
             "fcf_yield":          target.get("fcf_yield"),
-            "perf_year":          target.get("perf_year"),
-            "target_price":       target.get("target_price"),
-            "analyst_recom":      target.get("analyst_recom"),
+            "dividend_yield":     target.get("dividend_yield"),
         },
         "competitors": [
             {
@@ -852,155 +867,123 @@ def analyze():
                 "revenue_growth_yoy": c.get("revenue_growth_yoy"),
                 "eps_growth_yoy":     c.get("eps_growth_yoy"),
                 "net_debt_ebitda":    c.get("net_debt_ebitda"),
+                "fcf_yield":          c.get("fcf_yield"),
             }
             for c in competitors
         ],
+        "peers_found":      len(competitors),
+        "peers_attempted":  competitor_tickers,
+        "peers_failed":     peers_failed,
+        "scores":           scores,
+        "peer_scores":      peer_scores,
+        "rankings":         {**rankings, "sector_percentile": 50} if rankings else {"sector_percentile": 50},
+        "analyst_verdict":  verdict,
+        "verdict_composite": verdict_composite,
+        "timing":           timing,
+        "investment_case":  {"present": [], "forward": []},
+        "key_risks":        {"present": [], "forward": []},
+        "verdict_rationale": "",
     }
-    client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
 
-    try:
-        market_context = (
-            f"MARKET CONTEXT: International stock listed on {target.get('exchange', 'non-US exchange')} "
-            f"in {currency}. All financial metrics are reported in {currency}.\n"
-            if is_international else ""
+    # Step 6: Claude narrative — stream phase 1 immediately, phase 2 when done
+    narrative_data = {
+        "target": {k: target.get(k) for k in (
+            "ticker","company_name","sector","industry","market_cap_b",
+            "pe_ratio","forward_pe","ev_ebitda","ps_ratio","gross_margin",
+            "operating_margin","net_margin","roic","revenue_growth_yoy",
+            "eps_growth_yoy","net_debt_ebitda","fcf_yield","perf_year",
+            "target_price","analyst_recom",
+        )},
+        "competitors": [
+            {k: c.get(k) for k in (
+                "ticker","company_name","market_cap_b","perf_year","pe_ratio",
+                "ev_ebitda","ps_ratio","gross_margin","operating_margin","net_margin",
+                "roic","revenue_growth_yoy","eps_growth_yoy","net_debt_ebitda",
+            )}
+            for c in competitors
+        ],
+    }
+
+    market_context = (
+        f"MARKET CONTEXT: International stock listed on {target.get('exchange','non-US exchange')} "
+        f"in {currency}. All financial metrics are reported in {currency}.\n"
+        if is_international else ""
+    )
+    claude_client = anthropic.Anthropic(api_key=api_key, timeout=100.0)
+
+    def _prompt_kwargs():
+        return dict(
+            market_context=market_context,
+            ticker=ticker,
+            scores_json=json.dumps(scores, indent=2),
+            short_float=sf if sf is not None else "N/A",
+            short_ratio=sr if sr is not None else "N/A",
+            short_signal=short_signal,
+            timing_json=json.dumps(timing, indent=2),
+            data_json=json.dumps(narrative_data, indent=2),
         )
 
-        def _prompt_kwargs():
-            return dict(
-                market_context=market_context,
-                ticker=ticker,
-                scores_json=json.dumps(scores, indent=2),
-                short_float=sf if sf is not None else "N/A",
-                short_ratio=sr if sr is not None else "N/A",
-                short_signal=short_signal,
-                timing_json=json.dumps(timing, indent=2),
-                data_json=json.dumps(narrative_data, indent=2),
-            )
+    def stream_response():
+        # Phase 1: send Python-computed data immediately (~5s into request)
+        yield f"data: {json.dumps(base_result)}\n\n"
 
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=3000,
-            temperature=0,
-            messages=[{
-                "role": "user",
-                "content": NARRATIVE_PROMPT.format(**_prompt_kwargs()),
-            }],
-        )
-
-        raw_text = next(
-            (b.text for b in response.content if b.type == "text"), ""
-        ).strip()
-        narrative = extract_narrative_json(raw_text)
-
-        # Retry once if narrative is missing required keys
-        if not validate_narrative(narrative):
-            retry = client.messages.create(
+        try:
+            response = claude_client.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=3000,
                 temperature=0,
-                messages=[{
-                    "role": "user",
-                    "content": NARRATIVE_PROMPT.format(**_prompt_kwargs()),
-                }],
+                messages=[{"role": "user", "content": NARRATIVE_PROMPT.format(**_prompt_kwargs())}],
             )
-            retry_text = next(
-                (b.text for b in retry.content if b.type == "text"), ""
-            ).strip()
-            try:
-                narrative = extract_narrative_json(retry_text)
-            except Exception:
-                pass  # keep original partial narrative, banner will flag missing sections
+            raw_text = next((b.text for b in response.content if b.type == "text"), "").strip()
+            narrative = extract_narrative_json(raw_text)
 
-        print(f"TIMING Claude narrative: {time.time()-t0:.2f}s")
-        # Build final result: Python data + Python scores + Claude narrative
-        _executor.shutdown(wait=False)
-        spy = None if is_international else spy_result
-        result = {
-            "ticker":          target["ticker"],
-            "company_name":    target["company_name"],
-            "sector":          target["sector"],
-            "industry":        target["industry"],
-            "resolved_from":   resolved_from,
-            "earnings_date":   earnings_date,
-            "currency":        currency,
-            "is_international": is_international,
-            "current_price":   target.get("current_price"),
-            "target_price":    target.get("target_price"),
-            "perf_year":       target.get("perf_year"),
-            "spy_perf_year":   spy,
-            "vs_sp500":        round(target["perf_year"] - spy, 2) if target.get("perf_year") and spy else None,
-            "short_float":   sf,
-            "short_ratio":   sr,
-            "short_signal":  short_signal,
-            "fundamentals": {
-                "market_cap_b":       target.get("market_cap_b"),
-                "pe_ratio":           target.get("pe_ratio"),
-                "forward_pe":         target.get("forward_pe"),
-                "ev_ebitda":          target.get("ev_ebitda"),
-                "ps_ratio":           target.get("ps_ratio"),
-                "pb_ratio":           target.get("pb_ratio"),
-                "gross_margin":       target.get("gross_margin"),
-                "operating_margin":   target.get("operating_margin"),
-                "net_margin":         target.get("net_margin"),
-                "roic":               target.get("roic"),
-                "roe":                target.get("roe"),
-                "revenue_growth_yoy": target.get("revenue_growth_yoy"),
-                "eps_growth_yoy":     target.get("eps_growth_yoy"),
-                "net_debt_ebitda":    target.get("net_debt_ebitda"),
-                "current_ratio":      target.get("current_ratio"),
-                "fcf_yield":          target.get("fcf_yield"),
-                "dividend_yield":     target.get("dividend_yield"),
-            },
-            "competitors": [
-                {
-                    "ticker":             c.get("ticker"),
-                    "company_name":       c.get("company_name"),
-                    "market_cap_b":       c.get("market_cap_b"),
-                    "perf_year":          c.get("perf_year"),
-                    "pe_ratio":           c.get("pe_ratio"),
-                    "ev_ebitda":          c.get("ev_ebitda"),
-                    "ps_ratio":           c.get("ps_ratio"),
-                    "gross_margin":       c.get("gross_margin"),
-                    "operating_margin":   c.get("operating_margin"),
-                    "net_margin":         c.get("net_margin"),
-                    "roic":               c.get("roic"),
-                    "revenue_growth_yoy": c.get("revenue_growth_yoy"),
-                    "eps_growth_yoy":     c.get("eps_growth_yoy"),
-                    "net_debt_ebitda":    c.get("net_debt_ebitda"),
-                    "fcf_yield":          c.get("fcf_yield"),
-                }
-                for c in competitors
-            ],
-            "peers_found":    len(competitors),
-            "peers_attempted": competitor_tickers,
-            "peers_failed":    peers_failed,
-            "scores":      scores,
-            "peer_scores": peer_scores,
-            "rankings":    {**rankings, "sector_percentile": narrative.get("sector_percentile", 50)} if rankings else {"sector_percentile": narrative.get("sector_percentile", 50)},
-            "analyst_verdict":   verdict,
-            "verdict_composite": verdict_composite,
-            "timing":           {**timing, "commentary": narrative.get("timing_commentary", "")},
-            "investment_case":  narrative.get("investment_case", {"present": [], "forward": []}),
-            "key_risks":        narrative.get("key_risks", {"present": [], "forward": []}),
-            "verdict_rationale": narrative.get("verdict_rationale", ""),
-        }
-        result["cache_hit"] = False
-        _ticker_cache[ticker] = {"date": date.today(), "result": result}
-        print(f"TIMING total: {time.time()-t0:.2f}s")
-        return jsonify(result)
+            if not validate_narrative(narrative):
+                retry = claude_client.messages.create(
+                    model=CLAUDE_MODEL,
+                    max_tokens=3000,
+                    temperature=0,
+                    messages=[{"role": "user", "content": NARRATIVE_PROMPT.format(**_prompt_kwargs())}],
+                )
+                retry_text = next((b.text for b in retry.content if b.type == "text"), "").strip()
+                try:
+                    narrative = extract_narrative_json(retry_text)
+                except Exception:
+                    pass
 
-    except json.JSONDecodeError as e:
-        _executor.shutdown(wait=False)
-        logger.error("Narrative JSON parse failed for %s: %s", ticker, e)
-        return jsonify({"error": "Analysis response could not be parsed. Please try again."}), 500
-    except anthropic.APIError as e:
-        _executor.shutdown(wait=False)
-        logger.error("Anthropic API error for %s: %s", ticker, e)
-        return jsonify({"error": "AI analysis service is temporarily unavailable. Please try again."}), 502
-    except Exception as e:
-        _executor.shutdown(wait=False)
-        logger.error("Unexpected error for %s: %s", ticker, e)
-        return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
+            print(f"TIMING Claude narrative: {time.time()-t0:.2f}s")
+
+            phase2 = {
+                "type":             "narrative",
+                "investment_case":  narrative.get("investment_case", {"present": [], "forward": []}),
+                "key_risks":        narrative.get("key_risks", {"present": [], "forward": []}),
+                "verdict_rationale": narrative.get("verdict_rationale", ""),
+                "timing_commentary": narrative.get("timing_commentary", ""),
+                "sector_percentile": narrative.get("sector_percentile", 50),
+            }
+            yield f"data: {json.dumps(phase2)}\n\n"
+
+            # Cache the complete merged result for same-day requests
+            full_result = {
+                **base_result,
+                "_streaming":       False,
+                "investment_case":  phase2["investment_case"],
+                "key_risks":        phase2["key_risks"],
+                "verdict_rationale": phase2["verdict_rationale"],
+                "timing":           {**timing, "commentary": phase2["timing_commentary"]},
+                "rankings":         {**rankings, "sector_percentile": phase2["sector_percentile"]} if rankings else {"sector_percentile": phase2["sector_percentile"]},
+            }
+            _ticker_cache[ticker] = {"date": date.today(), "result": full_result}
+            print(f"TIMING total: {time.time()-t0:.2f}s")
+
+        except Exception as e:
+            logger.error("Narrative generation failed for %s: %s", ticker, e)
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(stream_response()),
+        content_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 @app.route("/api/health", methods=["GET"])
