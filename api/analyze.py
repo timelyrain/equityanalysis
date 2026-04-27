@@ -32,6 +32,32 @@ _ticker_cache = {}  # {ticker: {"date": date, "result": dict}}
 
 MIN_PEERS = 3  # minimum peers required for meaningful relative scoring
 
+# ── Supabase usage logging (lazy init — no-ops if env vars absent) ────────────
+_supabase_client = None
+
+def _get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        url = os.environ.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_KEY", "")
+        if url and key:
+            from supabase import create_client
+            _supabase_client = create_client(url, key)
+    return _supabase_client
+
+def _log_search(passcode, ticker, input_tokens, output_tokens):
+    try:
+        sb = _get_supabase()
+        if sb:
+            sb.table("searches").insert({
+                "passcode":      passcode,
+                "ticker":        ticker,
+                "input_tokens":  input_tokens,
+                "output_tokens": output_tokens,
+            }).execute()
+    except Exception as e:
+        print(f"Supabase log error: {e}")
+
 US_EXCHANGES = {"NMS", "NYQ", "NGM", "NCM", "PCX", "ASE", "NYSEArca", "BATS", "PNK", "OTC", "NASDAQ", "NYSE"}
 
 CURRENCY_SYMBOLS = {
@@ -716,6 +742,7 @@ def analyze():
     if not check_invite_code(request):
         return jsonify({"error": "Invalid or missing invite code."}), 403
 
+    passcode = request.headers.get("X-Invite-Code", "UNKNOWN").strip().upper()
     data = request.get_json(silent=True) or {}
     raw_input = data.get("ticker", "").strip()
 
@@ -1008,6 +1035,8 @@ def analyze():
             )
             raw_text = next((b.text for b in response.content if b.type == "text"), "").strip()
             narrative = extract_narrative_json(raw_text)
+            total_input  = response.usage.input_tokens
+            total_output = response.usage.output_tokens
 
             if not validate_narrative(narrative):
                 retry = claude_client.messages.create(
@@ -1017,6 +1046,8 @@ def analyze():
                     messages=[{"role": "user", "content": NARRATIVE_PROMPT.format(**_prompt_kwargs())}],
                 )
                 retry_text = next((b.text for b in retry.content if b.type == "text"), "").strip()
+                total_input  += retry.usage.input_tokens
+                total_output += retry.usage.output_tokens
                 try:
                     narrative = extract_narrative_json(retry_text)
                 except Exception:
@@ -1033,6 +1064,7 @@ def analyze():
                 "sector_percentile": narrative.get("sector_percentile", 50),
             }
             yield f"data: {json.dumps(phase2)}\n\n"
+            _log_search(passcode, ticker, total_input, total_output)
 
             # Cache the complete merged result for same-day requests
             full_result = {
