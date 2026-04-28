@@ -604,7 +604,7 @@ def validate_narrative(n):
 
 def compute_verdict(overall_score, analyst_recom, current_price, target_price):
     """
-    Composite verdict: 40% analyst consensus + 35% price target upside + 25% peer score.
+    Composite verdict: 30% analyst consensus + 30% price target upside + 40% peer score.
     Each component normalised to 0-100 before weighting.
     Missing components are excluded and remaining weights are renormalised.
     """
@@ -626,7 +626,7 @@ def compute_verdict(overall_score, analyst_recom, current_price, target_price):
     if not components:
         return "HOLD", None
 
-    raw_weights = {"consensus": 0.40, "upside": 0.35, "peer_score": 0.25}
+    raw_weights = {"consensus": 0.30, "upside": 0.30, "peer_score": 0.40}
     total_w = sum(raw_weights[k] for k in components)
     composite = round(sum(components[k] * raw_weights[k] for k in components) / total_w)
 
