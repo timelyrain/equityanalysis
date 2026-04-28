@@ -1206,7 +1206,7 @@ function renderDashboard(d) {
   const resolvedLabel = d.resolved_from ? `<span style="opacity:0.7;font-size:0.6rem;">&#128269; "${esc(d.resolved_from)}" resolved to ${esc(d.ticker)}</span>` : "";
   const dataBanner = d._streaming
     ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
-        <div class="spinner" style="width:10px;height:10px;border-width:2px"></div> Market data analysis completed &mdash; generating AI insights… ${resolvedLabel}
+        <div class="spinner" style="width:10px;height:10px;border-width:2px"></div> Generating AI insights… ${resolvedLabel}
        </div>`
     : missing.length === 0
     ? `<div id="data-banner" style="background:rgba(0,229,195,0.06);border:1px solid rgba(0,229,195,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:0.68rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
@@ -1263,7 +1263,7 @@ function renderDashboard(d) {
               ? `<span class="upside-tag ${upside >= 0 ? "up" : "down"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</span>`
               : "";
             const spyHtml = d.vs_sp500 != null
-              ? `<span class="short-signal-wrap" style="display:inline-flex;align-items:center"><span class="upside-tag ${d.vs_sp500 >= 0 ? "up" : "down"}" style="cursor:default">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}% vs S&amp;P500</span><div class="short-tooltip" style="width:260px;left:0;top:calc(100% + 8px)"><div class="tooltip-title">1-Year Return vs S&amp;P 500</div><div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="text-align:left">Trailing 12-month price return of this stock minus the S&amp;P 500 (SPY) return over the same period. A positive figure means the stock outperformed the index; negative means it lagged.</span></div></div></span>`
+              ? `<span class="short-signal-wrap" style="display:inline-flex;align-items:center"><span class="upside-tag ${d.vs_sp500 >= 0 ? "up" : "down"}" style="cursor:default">${d.vs_sp500 >= 0 ? "+" : ""}${d.vs_sp500.toFixed(1)}% vs S&amp;P500</span><div class="short-tooltip" style="width:260px;left:0;top:calc(100% + 8px)"><div class="tooltip-title">1-Year Return vs S&amp;P 500</div><div class="tooltip-row" style="display:block;padding:2px 0"><span class="tooltip-desc" style="text-align:left">Trailing 12-month price return of this stock vs S&amp;P 500 (SPY).</span></div></div></span>`
               : "";
             return `<div>
               <div class="target-price-block">
