@@ -682,8 +682,6 @@ def get_valid_codes():
 
 def check_invite_code(req):
     codes = get_valid_codes()
-    if not codes:
-        return True  # no codes configured = unrestricted
     code = req.headers.get("X-Invite-Code", "").strip().upper()
     return code in codes
 

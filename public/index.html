@@ -1706,7 +1706,7 @@ function animateRings() {
     })
     .then(r => r.json())
     .then(d => { if (!d.valid) { localStorage.removeItem("inviteCode"); showGate(); } else { hideGate(); } })
-    .catch(() => hideGate()); // network error — let them through, API will reject if invalid
+    .catch(() => showGate()); // network error — fail closed, require re-verification
   } else {
     showGate();
   }
