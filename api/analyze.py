@@ -757,11 +757,25 @@ def analyze():
 
     t0 = time.time()
 
-    # Always resolve via Claude to get the correct current ticker
-    ticker = resolve_ticker(raw_input, api_key)
-    print(f"TIMING resolve_ticker: {time.time()-t0:.2f}s")
+    # If the input already looks like a ticker symbol (e.g. selected from the
+    # search dropdown), trust it directly rather than routing it through Claude —
+    # the LLM can't know about tickers newer than its training data (recent
+    # listings, spin-offs, etc.) even though they're valid, real symbols.
+    ticker = None
+    candidate = raw_input.upper()
+    if re.match(r'^[A-Z0-9]{1,6}(\.[A-Z]{1,3})?$', candidate):
+        try:
+            if yf.Ticker(candidate).info.get("quoteType"):
+                ticker = candidate
+        except Exception:
+            pass
+
     if not ticker:
-        return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA or DHL.DE).'}), 400
+        # Fall back to Claude for company names, misspellings, or unrecognized input
+        ticker = resolve_ticker(raw_input, api_key)
+        print(f"TIMING resolve_ticker: {time.time()-t0:.2f}s")
+        if not ticker:
+            return jsonify({"error": f'Could not identify a stock ticker for "{raw_input}". Try entering the ticker directly (e.g. NVDA or DHL.DE).'}), 400
     resolved_from = raw_input if ticker != raw_input.upper() else None
 
     # Return cached result if same ticker was analysed today
